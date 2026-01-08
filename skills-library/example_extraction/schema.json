@@ -1,0 +1,55 @@
+{
+  "schema_id": "example_extraction",
+  "version": "1.0.0",
+  "name": "Example Document Extraction",
+  "description": "Example schema demonstrating skill-based extraction with parallel execution",
+  "output_model": "models.ExtractionResult",
+
+  "skills": [
+    {
+      "id": "metadata",
+      "name": "Document Metadata Extractor",
+      "prompt_file": "prompts/metadata.md",
+      "parallel_group": 1,
+      "timeout_seconds": 30,
+      "retry_count": 2,
+      "output_fields": ["title", "author", "date", "documentType"],
+      "temperature": 0.0
+    },
+    {
+      "id": "summary",
+      "name": "Document Summary Generator",
+      "prompt_file": "prompts/summary.md",
+      "parallel_group": 1,
+      "timeout_seconds": 45,
+      "retry_count": 2,
+      "output_fields": ["summary", "keyPoints"],
+      "temperature": 0.1
+    },
+    {
+      "id": "entities",
+      "name": "Named Entity Extractor",
+      "prompt_file": "prompts/entities.md",
+      "parallel_group": 2,
+      "timeout_seconds": 60,
+      "retry_count": 3,
+      "output_fields": ["people", "organizations", "locations", "dates"],
+      "temperature": 0.0
+    }
+  ],
+
+  "post_processing": {
+    "merge_strategy": "merge_deep",
+    "validation_rules": [
+      {
+        "id": "required_fields",
+        "name": "Check Required Fields",
+        "type": "required",
+        "params": {
+          "fields": ["title", "summary"]
+        },
+        "severity": "error"
+      }
+    ]
+  }
+}
