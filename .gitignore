@@ -65,3 +65,4 @@ Thumbs.db
 
 # Git cloned skills (temp directory)
 skills-temp/
+.env.example
