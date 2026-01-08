@@ -1,0 +1,54 @@
+{
+  "schema_id": "valuation_report_analyzer",
+  "version": "1.0.0",
+  "name": "Valuation Report Analyzer (דוח אפס)",
+  "description": "Comprehensive extraction from Israeli real estate appraisal/valuation reports - extracts project info, financial data, and risk assessment",
+  "output_model": "models.ValuationReportResult",
+
+  "skills": [
+    {
+      "id": "analyze_report",
+      "name": "Analyze Valuation Report",
+      "prompt_file": "prompts/analyze.md",
+      "parallel_group": 1,
+      "timeout_seconds": 90,
+      "retry_count": 2,
+      "output_fields": [
+        "projectInfo",
+        "financialSummary",
+        "expenseBreakdown",
+        "risks"
+      ],
+      "vendor": "anthropic",
+      "model": "claude-sonnet-4-20250514",
+      "temperature": 0.0
+    }
+  ],
+
+  "post_processing": {
+    "merge_strategy": "merge_deep",
+    "validation_rules": [
+      {
+        "id": "project_name_required",
+        "name": "Project name is required",
+        "type": "required",
+        "params": {"fields": ["projectInfo.identification.projectName"]},
+        "severity": "error"
+      },
+      {
+        "id": "total_units_required",
+        "name": "Total units is required",
+        "type": "required",
+        "params": {"fields": ["projectInfo.scale.totalUnits"]},
+        "severity": "error"
+      },
+      {
+        "id": "revenue_required",
+        "name": "Revenue is required",
+        "type": "required",
+        "params": {"fields": ["financialSummary.revenue.total"]},
+        "severity": "warning"
+      }
+    ]
+  }
+}
