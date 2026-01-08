@@ -1,0 +1,32 @@
+{
+  "schema_id": "metadata_extractor",
+  "version": "1.0.0",
+  "name": "Document Metadata Extractor",
+  "description": "Extracts metadata (title, author, date, type) from any document",
+  "output_model": "models.MetadataResult",
+
+  "skills": [
+    {
+      "id": "extract_metadata",
+      "name": "Extract Document Metadata",
+      "prompt_file": "prompts/extract.md",
+      "parallel_group": 1,
+      "timeout_seconds": 30,
+      "retry_count": 2,
+      "output_fields": ["title", "author", "date", "document_type"]
+    }
+  ],
+
+  "post_processing": {
+    "merge_strategy": "merge_deep",
+    "validation_rules": [
+      {
+        "id": "title_required",
+        "name": "Title is required",
+        "type": "required",
+        "params": {"fields": ["title"]},
+        "severity": "error"
+      }
+    ]
+  }
+}

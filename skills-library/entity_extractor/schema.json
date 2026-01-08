@@ -1,0 +1,24 @@
+{
+  "schema_id": "entity_extractor",
+  "version": "1.0.0",
+  "name": "Named Entity Extractor",
+  "description": "Extracts named entities (people, organizations, locations, dates) from documents",
+  "output_model": "models.EntityResult",
+
+  "skills": [
+    {
+      "id": "extract_entities",
+      "name": "Extract Named Entities",
+      "prompt_file": "prompts/extract.md",
+      "parallel_group": 1,
+      "timeout_seconds": 60,
+      "retry_count": 3,
+      "output_fields": ["people", "organizations", "locations", "dates"]
+    }
+  ],
+
+  "post_processing": {
+    "merge_strategy": "merge_deep",
+    "validation_rules": []
+  }
+}
