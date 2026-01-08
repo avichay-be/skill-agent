@@ -1,0 +1,33 @@
+{
+  "schema_id": "hello_world",
+  "version": "1.0.0",
+  "name": "Hello World Skill",
+  "description": "Simple proof-of-concept skill that extracts a greeting message from a document",
+  "output_model": "models.HelloWorldResult",
+
+  "skills": [
+    {
+      "id": "extract_greeting",
+      "name": "Extract Greeting",
+      "prompt_file": "prompts/hello.md",
+      "parallel_group": 1,
+      "timeout_seconds": 30,
+      "retry_count": 2,
+      "output_fields": ["greeting", "message"],
+      "temperature": 0.0
+    }
+  ],
+
+  "post_processing": {
+    "merge_strategy": "merge_deep",
+    "validation_rules": [
+      {
+        "id": "greeting_required",
+        "name": "Greeting is required",
+        "type": "required",
+        "params": {"fields": ["greeting"]},
+        "severity": "error"
+      }
+    ]
+  }
+}
