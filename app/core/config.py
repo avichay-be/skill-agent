@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,8 +20,14 @@ class Settings(BaseSettings):
     app_name: str = "Skill Agent"
     debug: bool = False
 
-    # API Keys for authentication
-    api_keys: List[str] = Field(default_factory=lambda: ["dev-api-key"])
+    # API Keys for authentication (comma-separated string in env)
+    api_keys_str: str = Field(default="dev-api-key", alias="api_keys")
+
+    @computed_field
+    @property
+    def api_keys(self) -> List[str]:
+        """Parse comma-separated API keys."""
+        return [k.strip() for k in self.api_keys_str.split(",") if k.strip()]
 
     # GitHub settings
     github_repo_url: str = ""
