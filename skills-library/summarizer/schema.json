@@ -1,0 +1,33 @@
+{
+  "schema_id": "summarizer",
+  "version": "1.0.0",
+  "name": "Document Summarizer",
+  "description": "Generates concise summary and key points from any document",
+  "output_model": "models.SummaryResult",
+
+  "skills": [
+    {
+      "id": "generate_summary",
+      "name": "Generate Document Summary",
+      "prompt_file": "prompts/summarize.md",
+      "parallel_group": 1,
+      "timeout_seconds": 45,
+      "retry_count": 2,
+      "output_fields": ["summary", "key_points"],
+      "temperature": 0.1
+    }
+  ],
+
+  "post_processing": {
+    "merge_strategy": "merge_deep",
+    "validation_rules": [
+      {
+        "id": "summary_required",
+        "name": "Summary is required",
+        "type": "required",
+        "params": {"fields": ["summary"]},
+        "severity": "error"
+      }
+    ]
+  }
+}
