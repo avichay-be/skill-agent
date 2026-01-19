@@ -6,6 +6,7 @@ without requiring actual LLM API calls.
 """
 
 import sys
+
 sys.path.insert(0, '.')
 
 from app.services.graph.builder import create_skill_execution_graph
@@ -58,7 +59,7 @@ try:
         execution_id=str(uuid4())
     )
     print("   ✓ State created successfully")
-    print(f"   Fields: document, schema_id, execution_id, ...")
+    print("   Fields: document, schema_id, execution_id, ...")
     print(f"   Status: {state.status}")
     print(f"   Current group: {state.current_group}")
 except Exception as e:
@@ -71,7 +72,7 @@ try:
     registry.initialize()
 
     schemas = registry.list_schemas()
-    print(f"   ✓ Registry initialized")
+    print("   ✓ Registry initialized")
     print(f"   ✓ Found {len(schemas)} schemas")
 
     if schemas:

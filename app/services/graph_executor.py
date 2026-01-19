@@ -5,26 +5,25 @@ This replaces the original SkillExecutor with LangGraph orchestration.
 """
 
 import logging
-import time
-from typing import Optional, AsyncIterator, Dict, Any
+from typing import Any, AsyncIterator, Dict, Optional
 from uuid import uuid4
-from datetime import datetime
 
+from app.core.config import get_settings
 from app.models.execution import (
+    ExecutionMetadata,
     ExecutionRequest,
     ExecutionResponse,
     ExecutionStatus,
-    ExecutionMetadata,
-    TokenUsage
+    TokenUsage,
 )
 from app.services.graph.builder import create_skill_execution_graph
 from app.services.graph.state import SkillGraphState
 from app.services.skill_registry import get_registry
-from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,7 +39,6 @@ class GraphExecutor:
     """
 
     def __init__(self, settings=None):
-        from app.core.config import get_settings
         self.settings = settings or get_settings()
 
         # Create the compiled graph
@@ -61,8 +59,8 @@ class GraphExecutor:
             ExecutionResponse with results
         """
         from uuid import uuid4
-        from app.models.execution import ExecutionResponse, ExecutionStatus, ExecutionMetadata
-        from datetime import datetime
+
+        from app.models.execution import ExecutionMetadata, ExecutionResponse, ExecutionStatus
 
         execution_id = str(uuid4())
 

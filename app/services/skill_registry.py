@@ -3,7 +3,6 @@
 import importlib.util
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
 from threading import Lock
 from typing import Dict, List, Optional, Type
@@ -14,7 +13,7 @@ from app.core.config import Settings, get_settings
 from app.models.events import EventType, SkillEvent
 from app.models.schema import LoadedSchema, SchemaConfig
 from app.models.skill import Skill, SkillStatus
-from app.services.git_loader import GitLoader, GitLoaderError
+from app.services.git_loader import GitLoader
 
 logger = logging.getLogger(__name__)
 

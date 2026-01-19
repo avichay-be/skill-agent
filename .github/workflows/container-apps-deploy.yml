@@ -1,0 +1,149 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  AZURE_CONTAINER_APP_NAME: skill-agent-app
+  AZURE_RESOURCE_GROUP: skill-agent-rg
+  CONTAINER_REGISTRY_NAME: skillagentreg
+  IMAGE_NAME: skill-agent
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get ACR credentials
+        id: acr-creds
+        run: |
+          ACR_NAME=$(az acr list --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "[0].name" -o tsv)
+          echo "acr_name=$ACR_NAME" >> $GITHUB_OUTPUT
+          ACR_LOGIN_SERVER=$(az acr show --name $ACR_NAME --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query loginServer -o tsv)
+          echo "acr_login_server=$ACR_LOGIN_SERVER" >> $GITHUB_OUTPUT
+
+      - name: Login to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.acr-creds.outputs.acr_login_server }}
+          username: ${{ steps.acr-creds.outputs.acr_name }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.acr-creds.outputs.acr_login_server }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment || 'production' }}
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get ACR credentials
+        id: acr-creds
+        run: |
+          ACR_NAME=$(az acr list --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "[0].name" -o tsv)
+          echo "acr_name=$ACR_NAME" >> $GITHUB_OUTPUT
+          ACR_LOGIN_SERVER=$(az acr show --name $ACR_NAME --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query loginServer -o tsv)
+          echo "acr_login_server=$ACR_LOGIN_SERVER" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Azure Container Apps
+        id: deploy
+        run: |
+          # Update container app with new image
+          az containerapp update \
+            --name ${{ env.AZURE_CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ steps.acr-creds.outputs.acr_login_server }}/${{ env.IMAGE_NAME }}:latest \
+            --set-env-vars \
+              ANTHROPIC_API_KEY=secretref:anthropic-api-key \
+              OPENAI_API_KEY=secretref:openai-api-key \
+              GOOGLE_API_KEY=secretref:google-api-key \
+              GITHUB_REPO_URL=${{ secrets.GITHUB_REPO_URL }} \
+              APP_NAME="Skill Agent" \
+              LOG_LEVEL=INFO
+
+          # Get the app URL
+          APP_URL=$(az containerapp show \
+            --name ${{ env.AZURE_CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn -o tsv)
+
+          echo "url=https://$APP_URL" >> $GITHUB_OUTPUT
+          echo "### Deployment Successful! :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "Application URL: https://$APP_URL" >> $GITHUB_STEP_SUMMARY
+          echo "API Documentation: https://$APP_URL/docs" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify deployment
+        run: |
+          APP_URL=$(az containerapp show \
+            --name ${{ env.AZURE_CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn -o tsv)
+
+          echo "Waiting for application to be ready..."
+          for i in {1..30}; do
+            if curl -f -s "https://$APP_URL/health" > /dev/null; then
+              echo "Application is healthy!"
+              exit 0
+            fi
+            echo "Attempt $i: Application not ready yet, waiting..."
+            sleep 10
+          done
+
+          echo "Warning: Application did not become healthy within expected time"
+          exit 1
+
+      - name: Logout from Azure
+        if: always()
+        run: az logout

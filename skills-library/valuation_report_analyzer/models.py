@@ -1,8 +1,8 @@
 """Pydantic output models for Israeli real estate valuation report analysis."""
 
 from typing import List, Optional
-from pydantic import BaseModel, Field
 
+from pydantic import BaseModel, Field
 
 # ============== Project Info Models ==============
 

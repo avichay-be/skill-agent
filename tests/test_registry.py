@@ -1,10 +1,11 @@
 """Tests for Skill Registry."""
 
-import pytest
 from pathlib import Path
 
-from app.services.skill_registry import SkillRegistry, RegistryError
+import pytest
+
 from app.models.events import EventType
+from app.services.skill_registry import RegistryError, SkillRegistry
 
 
 class TestSkillRegistry:

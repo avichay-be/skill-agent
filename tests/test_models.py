@@ -1,12 +1,10 @@
 """Tests for Pydantic models."""
 
-import pytest
-from datetime import datetime
 
-from app.models.skill import Skill, SkillConfig, SkillStatus, SkillExecutionResult
-from app.models.schema import SchemaConfig, LoadedSchema, MergeStrategy, ValidationRule
-from app.models.events import SkillEvent, EventType, GitWebhookPayload
+from app.models.events import EventType, GitWebhookPayload, SkillEvent
 from app.models.execution import ExecutionRequest, ExecutionResponse, ExecutionStatus
+from app.models.schema import LoadedSchema, MergeStrategy, SchemaConfig, ValidationRule
+from app.models.skill import Skill, SkillConfig, SkillExecutionResult, SkillStatus
 
 
 class TestSkillModels:

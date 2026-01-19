@@ -1,12 +1,13 @@
 """Tests for Skill Executor."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.executor import SkillExecutor
+import pytest
+
 from app.models.execution import ExecutionRequest, ExecutionStatus, TokenUsage
 from app.models.schema import MergeStrategy
+from app.services.executor import SkillExecutor
 
 
 class TestSkillExecutor:
@@ -15,8 +16,9 @@ class TestSkillExecutor:
     @pytest.fixture
     def mock_registry(self, temp_skills_dir: Path):
         """Create a mock registry with test schema."""
-        from app.services.skill_registry import SkillRegistry
         from unittest.mock import patch
+
+        from app.services.skill_registry import SkillRegistry
 
         SkillRegistry.reset()
 
@@ -110,8 +112,8 @@ class TestSkillExecutor:
 
     def test_merge_results_first_wins(self):
         """Test merge strategy: first wins."""
+        from app.models.schema import LoadedSchema, PostProcessing, SchemaConfig
         from app.models.skill import SkillExecutionResult
-        from app.models.schema import LoadedSchema, SchemaConfig, PostProcessing
 
         executor = SkillExecutor()
 
@@ -156,8 +158,8 @@ class TestSkillExecutor:
 
     def test_merge_results_last_wins(self):
         """Test merge strategy: last wins."""
+        from app.models.schema import LoadedSchema, PostProcessing, SchemaConfig
         from app.models.skill import SkillExecutionResult
-        from app.models.schema import LoadedSchema, SchemaConfig, PostProcessing
 
         executor = SkillExecutor()
 
@@ -200,8 +202,8 @@ class TestSkillExecutor:
 
     def test_merge_results_deep_merge(self):
         """Test merge strategy: deep merge."""
+        from app.models.schema import LoadedSchema, PostProcessing, SchemaConfig
         from app.models.skill import SkillExecutionResult
-        from app.models.schema import LoadedSchema, SchemaConfig, PostProcessing
 
         executor = SkillExecutor()
 

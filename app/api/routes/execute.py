@@ -2,16 +2,16 @@
 
 import json
 import logging
-from typing import Annotated, Optional, Dict, Any
+from typing import Annotated, Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 
-from app.core.security import ApiKeyDep
 from app.core.config import get_settings
+from app.core.security import ApiKeyDep
 from app.models.execution import ExecutionRequest, ExecutionResponse, ExecutionStatus
 from app.services.executor import SkillExecutor, get_executor
-from app.services.graph_executor import GraphExecutor, get_graph_executor
+from app.services.graph_executor import get_graph_executor
 from app.services.skill_registry import SkillRegistry, get_registry
 
 logger = logging.getLogger(__name__)
@@ -115,7 +115,7 @@ async def execute_extraction_from_file(
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unable to decode file. Unsupported encoding. Please upload a text file or convert to UTF-8.",
+                detail="Unable to decode file. Unsupported encoding. Please upload a text file or convert to UTF-8.",
             )
     except Exception as e:
         raise HTTPException(

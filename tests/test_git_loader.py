@@ -1,8 +1,8 @@
 """Tests for Git loader service."""
 
-import json
-import pytest
 from pathlib import Path
+
+import pytest
 
 from app.services.git_loader import GitLoader, GitLoaderError
 

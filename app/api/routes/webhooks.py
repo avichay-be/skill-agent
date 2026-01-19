@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
 
 from app.core.config import Settings, get_settings
-from app.models.events import EventType, GitWebhookPayload, SkillEvent
+from app.models.events import GitWebhookPayload, SkillEvent
 from app.services.skill_registry import SkillRegistry, get_registry
 
 logger = logging.getLogger(__name__)

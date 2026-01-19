@@ -9,20 +9,19 @@ This script tests both executors with sample data and compares:
 """
 
 import asyncio
+import json
 import sys
 import time
-import json
-from typing import Dict, Any
+from typing import Any, Dict
 
 # Add project to path
 sys.path.insert(0, '.')
 
+from app.core.config import get_settings
 from app.models.execution import ExecutionRequest
 from app.services.executor import SkillExecutor
 from app.services.graph_executor import GraphExecutor
 from app.services.skill_registry import get_registry
-from app.core.config import get_settings
-
 
 # Sample test document
 SAMPLE_DOCUMENT = """
@@ -58,7 +57,7 @@ async def test_executor(executor, executor_name: str, request: ExecutionRequest)
 
         # Show extracted data
         if response.data:
-            print(f"\n📊 Extracted data:")
+            print("\n📊 Extracted data:")
             print(json.dumps(response.data, indent=2)[:500] + "...")
 
         # Show validation results
@@ -107,7 +106,7 @@ async def main():
     registry.initialize()  # Initialize is synchronous
 
     # Check available skills
-    print(f"\n📋 Available skills:")
+    print("\n📋 Available skills:")
     schema_configs = registry.list_schemas()  # Returns list of SchemaConfig
     print(f"  Found {len(schema_configs)} schemas")
 
@@ -165,7 +164,7 @@ async def main():
     print(f"{'='*60}")
 
     if result_legacy["success"] and result_graph["success"]:
-        print(f"\n⏱️  Performance:")
+        print("\n⏱️  Performance:")
         print(f"  Legacy:    {result_legacy['elapsed_time']:.2f}s")
         print(f"  LangGraph: {result_graph['elapsed_time']:.2f}s")
 
@@ -177,30 +176,30 @@ async def main():
         else:
             print(f"  → LangGraph is {abs(time_pct):.1f}% faster ({time_diff:.2f}s)")
 
-        print(f"\n🪙 Token Usage:")
+        print("\n🪙 Token Usage:")
         print(f"  Legacy:    {result_legacy['token_usage']} tokens")
         print(f"  LangGraph: {result_graph['token_usage']} tokens")
 
         token_diff = result_graph['token_usage'] - result_legacy['token_usage']
         if token_diff == 0:
-            print(f"  → Same token usage ✓")
+            print("  → Same token usage ✓")
         else:
             print(f"  → Difference: {token_diff:+d} tokens")
 
-        print(f"\n📊 Results:")
+        print("\n📊 Results:")
         print(f"  Legacy status:    {result_legacy['status']}")
         print(f"  LangGraph status: {result_graph['status']}")
 
         # Check data consistency
         if result_legacy.get('data') == result_graph.get('data'):
-            print(f"  → Results are IDENTICAL ✓")
+            print("  → Results are IDENTICAL ✓")
         else:
-            print(f"  → Results differ (check detailed output above)")
+            print("  → Results differ (check detailed output above)")
 
-        print(f"\n✅ Both executors completed successfully!")
+        print("\n✅ Both executors completed successfully!")
 
     else:
-        print(f"\n⚠️  One or both executors failed:")
+        print("\n⚠️  One or both executors failed:")
         if not result_legacy["success"]:
             print(f"  Legacy: {result_legacy['error']}")
         if not result_graph["success"]:
