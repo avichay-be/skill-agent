@@ -1,7 +1,7 @@
 """Application configuration using Pydantic Settings."""
 
 from functools import lru_cache
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -58,6 +58,16 @@ class Settings(BaseSettings):
     default_timeout_seconds: int = 60
     default_retry_count: int = 2
     max_parallel_skills: int = 10
+
+    # LangGraph settings
+    use_langgraph: bool = True  # Feature flag to enable/disable LangGraph
+    checkpoint_backend: Literal["memory", "sqlite"] = "sqlite"
+    checkpoint_db_path: str = "./data/checkpoints.db"
+    checkpoint_cleanup_days: int = 7
+
+    enable_streaming: bool = True
+    enable_human_review: bool = True
+    enable_dynamic_selection: bool = False  # Experimental feature
 
     # Webhook settings
     webhook_secret: Optional[str] = None  # For verifying incoming webhooks
