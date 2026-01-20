@@ -113,7 +113,12 @@ class GitLoader:
         if not self._local_path:
             raise GitLoaderError("Repository not cloned. Call clone_or_pull() first.")
 
-        base = self._local_path / self.settings.skills_base_path
+        # If skills_base_path is empty, use local_path directly
+        if self.settings.skills_base_path:
+            base = self._local_path / self.settings.skills_base_path
+        else:
+            base = self._local_path
+
         if not base.exists():
             raise GitLoaderError(f"Skills base path not found: {base}")
         return base

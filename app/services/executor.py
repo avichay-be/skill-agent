@@ -17,7 +17,7 @@ from app.models.execution import (
     ValidationResult,
 )
 from app.models.schema import LoadedSchema, MergeStrategy
-from app.models.skill import Skill, SkillExecutionResult, SkillStatus
+from app.models.skill import Skill, SkillExecutionResult
 from app.services.llm_client import LLMClientFactory, LLMClientError
 from app.services.skill_registry import SkillRegistry, get_registry
 
@@ -41,11 +41,33 @@ class SkillExecutor:
         self.registry = registry or get_registry()
         self.settings = settings or get_settings()
 
-    async def execute(self, request: ExecutionRequest) -> ExecutionResponse:
-        """Execute extraction using specified schema.
+    def _get_default_model_for_vendor(self, vendor: str) -> str:
+        """Get the default model for a specific vendor.
 
         Args:
-            request: Execution request with document and schema.
+            vendor: LLM vendor name (anthropic, openai, gemini).
+
+        Returns:
+            Default model string for the vendor.
+        """
+        vendor_lower = vendor.lower()
+
+        if vendor_lower == "anthropic":
+            return self.settings.anthropic_model
+        elif vendor_lower == "openai":
+            return self.settings.openai_model
+        elif vendor_lower == "gemini":
+            return self.settings.gemini_model
+        else:
+            # Fallback to anthropic for unknown vendors
+            logger.warning(f"Unknown vendor '{vendor}', defaulting to Anthropic")
+            return self.settings.anthropic_model
+
+    async def execute(self, request: ExecutionRequest) -> ExecutionResponse:
+        """Execute extraction using specified skill.
+
+        Args:
+            request: Execution request with document and skill_name.
 
         Returns:
             Execution response with results.
@@ -54,28 +76,33 @@ class SkillExecutor:
         metadata = ExecutionMetadata(started_at=datetime.utcnow())
 
         try:
-            # Get schema
-            schema = self.registry.get_schema_or_raise(request.schema_id)
+            # Get schema by skill_name
+            schema = self.registry.get_schema_or_raise(request.skill_name)
             metadata.git_commit = schema.git_commit
             metadata.schema_version = schema.config.version
 
-            # Determine which skills to run
-            skills_to_run = self._get_skills_to_run(schema, request.skill_ids)
+            # Get all active skills in the schema
+            skills_to_run = schema.get_active_skills()
 
             if not skills_to_run:
                 return ExecutionResponse(
                     status=ExecutionStatus.FAILED,
-                    schema_id=request.schema_id,
+                    skill_name=request.skill_name,
                     error="No active skills to execute",
                     metadata=metadata,
                 )
+
+            # Determine vendor and model
+            vendor = request.vendor or self.settings.default_vendor
+            model = request.model or self._get_default_model_for_vendor(vendor)
+            logger.info(f"Executing with vendor={vendor}, model={model}")
 
             # Execute skills in parallel groups
             skill_results = await self._execute_skills(
                 skills_to_run,
                 request.document,
-                request.vendor or self.settings.default_vendor,
-                request.model or self.settings.default_model,
+                vendor,
+                model,
             )
 
             # Merge results
@@ -108,7 +135,7 @@ class SkillExecutor:
 
             return ExecutionResponse(
                 status=status,
-                schema_id=request.schema_id,
+                skill_name=request.skill_name,
                 data=merged_data,
                 validation=validation,
                 metadata=metadata,
@@ -123,34 +150,10 @@ class SkillExecutor:
 
             return ExecutionResponse(
                 status=ExecutionStatus.FAILED,
-                schema_id=request.schema_id,
+                skill_name=request.skill_name,
                 error=str(e),
                 metadata=metadata,
             )
-
-    def _get_skills_to_run(
-        self, schema: LoadedSchema, skill_ids: Optional[List[str]] = None
-    ) -> List[Skill]:
-        """Get list of skills to execute.
-
-        Args:
-            schema: Loaded schema.
-            skill_ids: Optional list of specific skill IDs to run.
-
-        Returns:
-            List of skills to execute.
-        """
-        if skill_ids:
-            skills = [
-                schema.skills[sid]
-                for sid in skill_ids
-                if sid in schema.skills
-                and schema.skills[sid].config.status == SkillStatus.ACTIVE
-            ]
-        else:
-            skills = schema.get_active_skills()
-
-        return skills
 
     async def _execute_skills(
         self,
@@ -232,6 +235,12 @@ class SkillExecutor:
         """
         vendor = skill.get_effective_vendor(default_vendor)
         model = skill.get_effective_model(default_model)
+
+        # Ensure we have the actual model name for logging
+        # Handle both None and empty string
+        if not model or model == "":
+            model = self._get_default_model_for_vendor(vendor)
+            logger.info(f"Resolved model to {model} for vendor {vendor}")
 
         start_time = time.time()
         last_error: Optional[str] = None

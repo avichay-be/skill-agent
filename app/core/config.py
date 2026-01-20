@@ -1,7 +1,7 @@
 """Application configuration using Pydantic Settings."""
 
 from functools import lru_cache
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -33,14 +33,14 @@ class Settings(BaseSettings):
     github_repo_url: str = ""
     github_token: Optional[str] = None
     github_branch: str = "main"
-    skills_base_path: str = "skills"  # Path within repo where skills live
+    skills_base_path: str = ""  # Path within repo where skills live (empty = root)
 
     # Local skills path (for development or local-only mode)
     local_skills_path: Optional[str] = None
 
     # LLM settings
-    default_vendor: str = "anthropic"
-    default_model: Optional[str] = None
+    default_vendor: str = "gemini"
+    default_model: Optional[str] = "gemini-3-flash-preview"
 
     # Anthropic
     anthropic_api_key: Optional[str] = None
@@ -52,12 +52,22 @@ class Settings(BaseSettings):
 
     # Google Gemini
     google_api_key: Optional[str] = None
-    gemini_model: str = "gemini-2.0-flash-exp"
+    gemini_model: str = "gemini-3-flash-preview"
 
     # Execution settings
     default_timeout_seconds: int = 60
     default_retry_count: int = 2
     max_parallel_skills: int = 10
+
+    # LangGraph settings
+    use_langgraph: bool = True  # Feature flag to enable/disable LangGraph
+    checkpoint_backend: Literal["memory", "sqlite"] = "sqlite"
+    checkpoint_db_path: str = "./data/checkpoints.db"
+    checkpoint_cleanup_days: int = 7
+
+    enable_streaming: bool = True
+    enable_human_review: bool = True
+    enable_dynamic_selection: bool = False  # Experimental feature
 
     # Webhook settings
     webhook_secret: Optional[str] = None  # For verifying incoming webhooks

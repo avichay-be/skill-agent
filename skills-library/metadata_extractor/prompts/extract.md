@@ -10,6 +10,7 @@ Analyze the document and extract:
 2. **author**: The author or creator (if mentioned)
 3. **date**: The date created or published (if mentioned)
 4. **documentType**: The type of document (report, article, memo, contract, etc.)
+5. **content**: The full text content of the document
 
 ## Guidelines
 
@@ -17,6 +18,7 @@ Analyze the document and extract:
 - For dates, use ISO format (YYYY-MM-DD) when possible
 - The title should be the most prominent heading or subject
 - Document type should be inferred from content and structure
+- For content, extract the complete text of the document preserving structure and formatting as much as possible
 
 ## Output Format
 
@@ -25,7 +27,8 @@ Analyze the document and extract:
   "title": "Document Title",
   "author": "Author Name or null",
   "date": "2024-01-15 or null",
-  "documentType": "report"
+  "documentType": "report",
+  "content": "Full text content of the document..."
 }
 ```
 

@@ -22,12 +22,9 @@ class ExecutionRequest(BaseModel):
     """Request to execute extraction on a document."""
 
     document: str = Field(..., description="Document content to extract from")
-    schema_id: str = Field(..., description="Schema to use for extraction")
+    skill_name: str = Field(..., description="Skill name (schema_id) to execute")
     vendor: Optional[str] = Field(default=None, description="Override default LLM vendor")
     model: Optional[str] = Field(default=None, description="Override default model")
-    skill_ids: Optional[List[str]] = Field(
-        default=None, description="Run only specific skills (None = all)"
-    )
     options: Dict[str, Any] = Field(
         default_factory=dict, description="Additional execution options"
     )
@@ -72,7 +69,7 @@ class ExecutionResponse(BaseModel):
     """Response from extraction execution."""
 
     status: ExecutionStatus = Field(..., description="Execution status")
-    schema_id: str = Field(..., description="Schema used")
+    skill_name: str = Field(..., description="Skill name used")
     data: Optional[Dict[str, Any]] = Field(default=None, description="Extracted data")
     validation: Optional[ValidationResult] = Field(default=None)
     metadata: ExecutionMetadata = Field(default_factory=ExecutionMetadata)

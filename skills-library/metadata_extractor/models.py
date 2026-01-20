@@ -15,6 +15,10 @@ class MetadataResult(BaseModel):
         alias="documentType",
         description="Type of document (report, article, memo, contract, etc.)"
     )
+    content: Optional[str] = Field(
+        None,
+        description="Full text content of the document"
+    )
 
     class Config:
         populate_by_name = True

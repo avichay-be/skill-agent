@@ -2,7 +2,7 @@
   "schema_id": "metadata_extractor",
   "version": "1.0.0",
   "name": "Document Metadata Extractor",
-  "description": "Extracts metadata (title, author, date, type) from any document",
+  "description": "Extracts metadata (title, author, date, type) and full content from any document",
   "output_model": "models.MetadataResult",
 
   "skills": [
@@ -13,7 +13,7 @@
       "parallel_group": 1,
       "timeout_seconds": 30,
       "retry_count": 2,
-      "output_fields": ["title", "author", "date", "document_type"]
+      "output_fields": ["title", "author", "date", "document_type", "content"]
     }
   ],
 
