@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/langgraph-migration
   workflow_dispatch:
     inputs:
       environment:
@@ -18,7 +19,7 @@ on:
 env:
   AZURE_CONTAINER_APP_NAME: skill-agent-app
   AZURE_RESOURCE_GROUP: skill-agent-rg
-  CONTAINER_REGISTRY_NAME: skillagentreg
+  CONTAINER_REGISTRY_NAME: skillagentprodacr
   IMAGE_NAME: skill-agent
 
 jobs:
