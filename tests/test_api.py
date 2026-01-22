@@ -1,7 +1,5 @@
 """Tests for FastAPI endpoints."""
 
-import pytest
-from unittest.mock import patch, MagicMock
 
 
 class TestHealthEndpoint:

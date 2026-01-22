@@ -55,7 +55,7 @@ class SchemaConfig(BaseModel):
 
 
 # Import here to avoid circular import
-from app.models.skill import Skill, SkillConfig
+from app.models.skill import Skill, SkillConfig  # noqa: E402
 
 SchemaConfig.model_rebuild()
 

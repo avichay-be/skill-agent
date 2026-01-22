@@ -1,6 +1,7 @@
 """Pydantic output model for metadata extraction."""
 
 from typing import Optional
+
 from pydantic import BaseModel, Field
 
 

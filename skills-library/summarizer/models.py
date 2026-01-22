@@ -1,6 +1,7 @@
 """Pydantic output model for document summarization."""
 
 from typing import List
+
 from pydantic import BaseModel, Field
 
 

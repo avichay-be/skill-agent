@@ -1,6 +1,7 @@
 """Pydantic output models for named entity extraction."""
 
 from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
 

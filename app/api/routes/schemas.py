@@ -1,12 +1,12 @@
 """Schemas API routes."""
 
 import logging
-from typing import Annotated, List
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.security import ApiKeyDep
-from app.models.schema import SchemaConfig, SchemaDetailResponse, SchemaListResponse
+from app.models.schema import SchemaDetailResponse, SchemaListResponse
 from app.services.skill_registry import SkillRegistry, get_registry
 
 logger = logging.getLogger(__name__)

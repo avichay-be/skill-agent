@@ -1,0 +1,454 @@
+{
+	"info": {
+		"_postman_id": "skill-agent-azure-001",
+		"name": "Skill Agent - Azure Deployment",
+		"description": "API collection for testing Skill Agent deployed on Azure Container Apps",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "apikey",
+		"apikey": [
+			{
+				"key": "value",
+				"value": "{{API_KEY}}",
+				"type": "string"
+			},
+			{
+				"key": "key",
+				"value": "X-API-Key",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Health & Status",
+			"item": [
+				{
+					"name": "Root Endpoint",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								""
+							]
+						},
+						"description": "Get basic service information"
+					},
+					"response": []
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/health",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Container health check endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Admin Health Check",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/admin/health",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"health"
+							]
+						},
+						"description": "Get detailed health status including registry initialization"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "Initialize Registry",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/admin/initialize",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"initialize"
+							]
+						},
+						"description": "Initialize or reload the skills registry from GitHub"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Configuration",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/admin/config",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"config"
+							]
+						},
+						"description": "Get current application configuration (non-sensitive values)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Schemas",
+			"item": [
+				{
+					"name": "List All Schemas",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/schemas",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"schemas"
+							]
+						},
+						"description": "Get list of all available schemas"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Schema Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/schemas/:schema_id",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"schemas",
+								":schema_id"
+							],
+							"variable": [
+								{
+									"key": "schema_id",
+									"value": "entity_extractor",
+									"description": "Schema ID (e.g., entity_extractor, summarizer)"
+								}
+							]
+						},
+						"description": "Get detailed information about a specific schema including its skills"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Skills",
+			"item": [
+				{
+					"name": "List All Skills",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/skills",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"skills"
+							]
+						},
+						"description": "Get list of all available skills across all schemas"
+					},
+					"response": []
+				},
+				{
+					"name": "List Skills by Schema",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/skills?schema_id=entity_extractor",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"skills"
+							],
+							"query": [
+								{
+									"key": "schema_id",
+									"value": "entity_extractor",
+									"description": "Filter skills by schema ID"
+								}
+							]
+						},
+						"description": "Get skills filtered by schema ID"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Execution",
+			"item": [
+				{
+					"name": "Execute Skills",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"document\": \"This is a sample document for testing. The company ACME Corp was founded in 2020.\",\n  \"schema_id\": \"entity_extractor\",\n  \"vendor\": \"gemini\",\n  \"model\": \"gemini-1.5-flash\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/execute",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"execute"
+							]
+						},
+						"description": "Execute skills on a document. Requires LLM API keys to be configured."
+					},
+					"response": []
+				},
+				{
+					"name": "Execute Specific Skills",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"document\": \"This is a sample document for testing.\",\n  \"schema_id\": \"entity_extractor\",\n  \"skill_ids\": [\"extract_entities\"],\n  \"vendor\": \"gemini\",\n  \"model\": \"gemini-1.5-flash\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/execute",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"execute"
+							]
+						},
+						"description": "Execute specific skills by ID instead of all skills in the schema"
+					},
+					"response": []
+				},
+				{
+					"name": "Execute with File Upload",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "schema_id",
+									"value": "entity_extractor",
+									"type": "text"
+								},
+								{
+									"key": "vendor",
+									"value": "gemini",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/execute/file",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"execute",
+								"file"
+							]
+						},
+						"description": "Upload and process a file (PDF, TXT, etc.)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Webhooks",
+			"item": [
+				{
+					"name": "Force Reload",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/webhooks/reload",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"webhooks",
+								"reload"
+							]
+						},
+						"description": "Force reload the skills registry from source"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Recent Events",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/webhooks/events",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"webhooks",
+								"events"
+							]
+						},
+						"description": "Get history of recent webhook events"
+					},
+					"response": []
+				},
+				{
+					"name": "GitHub Webhook",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-GitHub-Event",
+								"value": "push"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"ref\": \"refs/heads/main\",\n  \"after\": \"abc123def456\",\n  \"commits\": [\n    {\n      \"added\": [\"skills-library/entity_extractor/prompts/new_skill.md\"],\n      \"modified\": [],\n      \"removed\": []\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/v1/webhooks/git",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"webhooks",
+								"git"
+							]
+						},
+						"description": "GitHub webhook endpoint for automatic reload on push"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "BASE_URL",
+			"value": "https://skill-agent-app.livelycliff-37840c5f.eastus.azurecontainerapps.io",
+			"type": "string"
+		},
+		{
+			"key": "API_KEY",
+			"value": "test-api-key",
+			"type": "string"
+		}
+	]
+}

@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from app.core.config import Settings, get_settings
-from app.models.events import EventType, SkillEvent
 from app.models.execution import (
     ExecutionMetadata,
     ExecutionRequest,
@@ -16,9 +15,9 @@ from app.models.execution import (
     TokenUsage,
     ValidationResult,
 )
-from app.models.schema import LoadedSchema, MergeStrategy
+from app.models.schema import LoadedSchema, MergeStrategy, ValidationRule
 from app.models.skill import Skill, SkillExecutionResult
-from app.services.llm_client import LLMClientFactory, LLMClientError
+from app.services.llm_client import LLMClientError, LLMClientFactory
 from app.services.skill_registry import SkillRegistry, get_registry
 
 logger = logging.getLogger(__name__)
@@ -467,7 +466,6 @@ class SkillExecutor:
         Returns:
             Check result dictionary.
         """
-        from app.models.schema import ValidationRule
 
         try:
             if rule.type == "sum_check":
