@@ -51,9 +51,7 @@ class GitLoader:
         if self.settings.github_token and "github.com" in url:
             # Insert token for HTTPS URLs
             if url.startswith("https://"):
-                url = url.replace(
-                    "https://", f"https://{self.settings.github_token}@"
-                )
+                url = url.replace("https://", f"https://{self.settings.github_token}@")
         return url
 
     def clone_or_pull(self, target_path: Optional[str] = None) -> str:

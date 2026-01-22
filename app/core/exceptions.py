@@ -50,9 +50,7 @@ class ExecutionError(SkillAgentError):
         super().__init__(message, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def skill_agent_exception_handler(
-    request: Request, exc: SkillAgentError
-) -> JSONResponse:
+async def skill_agent_exception_handler(request: Request, exc: SkillAgentError) -> JSONResponse:
     """Handle SkillAgentError exceptions."""
     return JSONResponse(
         status_code=exc.status_code,

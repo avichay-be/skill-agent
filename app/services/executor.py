@@ -185,9 +185,7 @@ class SkillExecutor:
 
         for group_num in sorted(groups.keys()):
             group_skills = groups[group_num]
-            logger.info(
-                f"Executing parallel group {group_num} with {len(group_skills)} skills"
-            )
+            logger.info(f"Executing parallel group {group_num} with {len(group_skills)} skills")
 
             # Execute all skills in this group concurrently
             tasks = [
@@ -285,9 +283,7 @@ class SkillExecutor:
             except LLMClientError as e:
                 last_error = str(e)
                 retries = attempt + 1
-                logger.warning(
-                    f"Skill '{skill.id}' failed: {e}, attempt {retries}"
-                )
+                logger.warning(f"Skill '{skill.id}' failed: {e}, attempt {retries}")
 
             except Exception as e:
                 last_error = str(e)
@@ -347,9 +343,7 @@ class SkillExecutor:
 
         return merged
 
-    def _deep_merge(
-        self, base: Dict[str, Any], update: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _deep_merge(self, base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
         """Deep merge two dictionaries.
 
         Args:
@@ -362,20 +356,14 @@ class SkillExecutor:
         result = base.copy()
 
         for key, value in update.items():
-            if (
-                key in result
-                and isinstance(result[key], dict)
-                and isinstance(value, dict)
-            ):
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
                 result[key] = self._deep_merge(result[key], value)
             else:
                 result[key] = value
 
         return result
 
-    def _sum_token_usage(
-        self, results: List[SkillExecutionResult]
-    ) -> TokenUsage:
+    def _sum_token_usage(self, results: List[SkillExecutionResult]) -> TokenUsage:
         """Sum token usage across all results."""
         total = TokenUsage()
 
@@ -409,17 +397,21 @@ class SkillExecutor:
         if schema.output_model:
             try:
                 schema.output_model(**data)
-                checks.append({
-                    "name": "pydantic_validation",
-                    "status": "passed",
-                })
+                checks.append(
+                    {
+                        "name": "pydantic_validation",
+                        "status": "passed",
+                    }
+                )
             except Exception as e:
                 errors.append(f"Pydantic validation failed: {e}")
-                checks.append({
-                    "name": "pydantic_validation",
-                    "status": "failed",
-                    "error": str(e),
-                })
+                checks.append(
+                    {
+                        "name": "pydantic_validation",
+                        "status": "failed",
+                        "error": str(e),
+                    }
+                )
 
         # Run custom validation rules
         for rule in schema.config.post_processing.validation_rules:
@@ -494,9 +486,7 @@ class SkillExecutor:
             elif rule.type == "required":
                 # Check required fields exist
                 fields = rule.params.get("fields", [])
-                missing = [
-                    f for f in fields if self._get_nested_value(data, f) is None
-                ]
+                missing = [f for f in fields if self._get_nested_value(data, f) is None]
 
                 if missing:
                     return {
@@ -528,14 +518,16 @@ class SkillExecutor:
                 return {"name": rule.name, "status": "passed"}
 
             else:
-                return {"name": rule.name, "status": "skipped", "reason": f"Unknown rule type: {rule.type}"}
+                return {
+                    "name": rule.name,
+                    "status": "skipped",
+                    "reason": f"Unknown rule type: {rule.type}",
+                }
 
         except Exception as e:
             return {"name": rule.name, "status": "error", "error": str(e)}
 
-    def _get_nested_value(
-        self, data: Dict[str, Any], path: str
-    ) -> Optional[Any]:
+    def _get_nested_value(self, data: Dict[str, Any], path: str) -> Optional[Any]:
         """Get a nested value from a dictionary using dot notation.
 
         Args:

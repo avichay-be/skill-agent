@@ -16,7 +16,7 @@ from app.services.graph.state import SkillGraphState
 
 def create_skill_execution_graph(
     checkpointer_type: Literal["memory", "sqlite"] = "sqlite",
-    checkpoint_db_path: str = "./data/checkpoints.db"
+    checkpoint_db_path: str = "./data/checkpoints.db",
 ) -> StateGraph:
     """Create the main skill execution StateGraph.
 
@@ -66,8 +66,8 @@ def create_skill_execution_graph(
             "validate": "validate",
             "human_review": "human_review",
             "retry": "execute_group",
-            "complete": END
-        }
+            "complete": END,
+        },
     )
 
     # After validation, route again (might need human review)
@@ -88,7 +88,7 @@ def create_skill_execution_graph(
     # Compile the graph
     compiled_graph = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_before=["human_review"]  # Pause before human review
+        interrupt_before=["human_review"],  # Pause before human review
     )
 
     return compiled_graph
@@ -125,7 +125,7 @@ def _route_decision(state: SkillGraphState) -> str:
 
 
 def create_dynamic_selection_graph(
-    checkpointer_type: Literal["memory", "sqlite"] = "memory"
+    checkpointer_type: Literal["memory", "sqlite"] = "memory",
 ) -> StateGraph:
     """Create a graph variant with dynamic skill selection.
 
@@ -156,11 +156,7 @@ def create_dynamic_selection_graph(
     workflow.add_conditional_edges(
         "router",
         _route_decision,
-        {
-            "execute_next_group": "execute_group",
-            "validate": "validate",
-            "complete": END
-        }
+        {"execute_next_group": "execute_group", "validate": "validate", "complete": END},
     )
 
     workflow.add_edge("validate", "router")

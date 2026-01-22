@@ -10,9 +10,7 @@ class SummaryResult(BaseModel):
 
     summary: str = Field(..., description="Brief 2-4 sentence summary")
     key_points: List[str] = Field(
-        default_factory=list,
-        alias="keyPoints",
-        description="3-7 key takeaways from the document"
+        default_factory=list, alias="keyPoints", description="3-7 key takeaways from the document"
     )
 
     class Config:

@@ -7,20 +7,20 @@ without requiring actual LLM API calls.
 
 import sys
 
-sys.path.insert(0, '.')
+sys.path.insert(0, ".")
 
 from app.services.graph.builder import create_skill_execution_graph
 from app.services.graph.state import SkillGraphState
 from app.services.skill_registry import get_registry
 
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("LangGraph Basic Implementation Test")
-print("="*60)
+print("=" * 60)
 
 # Test 1: Graph Creation
 print("\n1. Testing graph creation...")
 try:
-    graph = create_skill_execution_graph(checkpointer_type='memory')
+    graph = create_skill_execution_graph(checkpointer_type="memory")
     print("   ✓ Graph created successfully")
     print(f"   Type: {type(graph).__name__}")
 except Exception as e:
@@ -38,12 +38,12 @@ try:
     print("\n   Nodes in graph:")
     node_names = []
     for node in graph_def.nodes:
-        if hasattr(node, 'id'):
+        if hasattr(node, "id"):
             node_names.append(node.id)
         else:
             node_names.append(str(node))
     for name in sorted(set(node_names)):
-        if name and name not in ['__start__', '__end__']:
+        if name and name not in ["__start__", "__end__"]:
             print(f"     - {name}")
 
 except Exception as e:
@@ -53,10 +53,9 @@ except Exception as e:
 print("\n3. Testing state schema...")
 try:
     from uuid import uuid4
+
     state = SkillGraphState(
-        document="Test document",
-        schema_id="test_schema",
-        execution_id=str(uuid4())
+        document="Test document", schema_id="test_schema", execution_id=str(uuid4())
     )
     print("   ✓ State created successfully")
     print("   Fields: document, schema_id, execution_id, ...")
@@ -87,6 +86,7 @@ except Exception as e:
 print("\n5. Testing GraphExecutor...")
 try:
     from app.services.graph_executor import GraphExecutor
+
     executor = GraphExecutor()
     print("   ✓ GraphExecutor initialized")
     print(f"   ✓ Graph type: {type(executor.graph).__name__}")
@@ -100,7 +100,7 @@ try:
     print("   ✓ Mermaid diagram generated")
     print(f"   ✓ Length: {len(mermaid)} characters")
     print("\n   Graph structure preview:")
-    lines = mermaid.split('\n')
+    lines = mermaid.split("\n")
     for line in lines[:15]:  # Show first 15 lines
         if line.strip():
             print(f"     {line}")
@@ -110,9 +110,9 @@ except Exception as e:
     print(f"   ⚠️  Could not generate Mermaid: {e}")
 
 # Summary
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("✅ All basic tests passed!")
-print("="*60)
+print("=" * 60)
 print("\n💡 LangGraph implementation is ready to use!")
 print("\nNext steps:")
 print("  1. Set up LLM API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY)")

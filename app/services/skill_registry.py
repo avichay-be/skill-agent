@@ -149,9 +149,7 @@ class SkillRegistry:
         logger.info(f"Loaded schema '{schema_id}' v{config.version} with {len(skills)} skills")
         return loaded_schema
 
-    def _load_output_model(
-        self, schema_dir: Path, model_path: str
-    ) -> Optional[Type[BaseModel]]:
+    def _load_output_model(self, schema_dir: Path, model_path: str) -> Optional[Type[BaseModel]]:
         """Dynamically load a Pydantic model from the skills directory.
 
         Args:

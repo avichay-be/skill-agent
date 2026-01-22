@@ -31,7 +31,7 @@ class TestSkillExecutor:
         settings.default_timeout_seconds = 60
         settings.default_retry_count = 2
 
-        with patch('app.services.skill_registry.get_settings', return_value=settings):
+        with patch("app.services.skill_registry.get_settings", return_value=settings):
             registry = SkillRegistry(settings)
             registry.initialize()
             yield registry
@@ -45,11 +45,11 @@ class TestSkillExecutor:
         mock_client.extract_json = AsyncMock(
             return_value=(
                 {"field1": "extracted_value"},
-                TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150)
+                TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
             )
         )
 
-        with patch('app.services.executor.LLMClientFactory') as factory:
+        with patch("app.services.executor.LLMClientFactory") as factory:
             factory.get_client.return_value = mock_client
             yield factory
 
@@ -250,14 +250,7 @@ class TestSkillExecutor:
         """Test getting nested values from dict."""
         executor = SkillExecutor()
 
-        data = {
-            "level1": {
-                "level2": {
-                    "value": 42
-                }
-            },
-            "simple": "test"
-        }
+        data = {"level1": {"level2": {"value": 42}}, "simple": "test"}
 
         assert executor._get_nested_value(data, "simple") == "test"
         assert executor._get_nested_value(data, "level1.level2.value") == 42

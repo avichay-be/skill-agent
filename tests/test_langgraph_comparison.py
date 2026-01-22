@@ -15,7 +15,7 @@ import time
 from typing import Any, Dict
 
 # Add project to path
-sys.path.insert(0, '.')
+sys.path.insert(0, ".")
 
 from app.models.execution import ExecutionRequest
 from app.services.executor import SkillExecutor
@@ -37,9 +37,9 @@ has become a leader in artificial intelligence solutions.
 
 async def test_executor(executor, executor_name: str, request: ExecutionRequest) -> Dict[str, Any]:
     """Test a single executor and return metrics."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Testing: {executor_name}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     start_time = time.time()
 
@@ -61,7 +61,9 @@ async def test_executor(executor, executor_name: str, request: ExecutionRequest)
 
         # Show validation results
         if response.validation:
-            print(f"\n✅ Validation: {response.validation.status} (score: {response.validation.quality_score})")
+            print(
+                f"\n✅ Validation: {response.validation.status} (score: {response.validation.quality_score})"
+            )
             if response.validation.errors:
                 print(f"   Errors: {response.validation.errors}")
             if response.validation.warnings:
@@ -76,28 +78,29 @@ async def test_executor(executor, executor_name: str, request: ExecutionRequest)
             "token_usage": response.metadata.token_usage.total_tokens,
             "skills_executed": len(response.skill_results),
             "data": response.data,
-            "error": None
+            "error": None,
         }
 
     except Exception as e:
         elapsed_time = time.time() - start_time
         print(f"✗ Error: {str(e)}")
         import traceback
+
         traceback.print_exc()
 
         return {
             "executor": executor_name,
             "success": False,
             "elapsed_time": elapsed_time,
-            "error": str(e)
+            "error": str(e),
         }
 
 
 async def main():
     """Run comparison tests."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("LangGraph vs Legacy Executor Comparison Test")
-    print("="*60)
+    print("=" * 60)
 
     # Initialize
     registry = get_registry()
@@ -135,7 +138,7 @@ async def main():
         document=SAMPLE_DOCUMENT,
         skill_name=test_skill,
         vendor=None,  # Use default
-        model=None    # Use default
+        model=None,  # Use default
     )
 
     # Initialize executors
@@ -157,17 +160,17 @@ async def main():
     results.append(result_graph)
 
     # Comparison
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("COMPARISON SUMMARY")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if result_legacy["success"] and result_graph["success"]:
         print("\n⏱️  Performance:")
         print(f"  Legacy:    {result_legacy['elapsed_time']:.2f}s")
         print(f"  LangGraph: {result_graph['elapsed_time']:.2f}s")
 
-        time_diff = result_graph['elapsed_time'] - result_legacy['elapsed_time']
-        time_pct = (time_diff / result_legacy['elapsed_time']) * 100
+        time_diff = result_graph["elapsed_time"] - result_legacy["elapsed_time"]
+        time_pct = (time_diff / result_legacy["elapsed_time"]) * 100
 
         if time_diff > 0:
             print(f"  → LangGraph is {abs(time_pct):.1f}% slower (+{time_diff:.2f}s)")
@@ -178,7 +181,7 @@ async def main():
         print(f"  Legacy:    {result_legacy['token_usage']} tokens")
         print(f"  LangGraph: {result_graph['token_usage']} tokens")
 
-        token_diff = result_graph['token_usage'] - result_legacy['token_usage']
+        token_diff = result_graph["token_usage"] - result_legacy["token_usage"]
         if token_diff == 0:
             print("  → Same token usage ✓")
         else:
@@ -189,7 +192,7 @@ async def main():
         print(f"  LangGraph status: {result_graph['status']}")
 
         # Check data consistency
-        if result_legacy.get('data') == result_graph.get('data'):
+        if result_legacy.get("data") == result_graph.get("data"):
             print("  → Results are IDENTICAL ✓")
         else:
             print("  → Results differ (check detailed output above)")
@@ -203,9 +206,9 @@ async def main():
         if not result_graph["success"]:
             print(f"  LangGraph: {result_graph['error']}")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Test completed!")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 if __name__ == "__main__":
