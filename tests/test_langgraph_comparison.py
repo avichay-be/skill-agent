@@ -17,7 +17,6 @@ from typing import Any, Dict
 # Add project to path
 sys.path.insert(0, '.')
 
-from app.core.config import get_settings
 from app.models.execution import ExecutionRequest
 from app.services.executor import SkillExecutor
 from app.services.graph_executor import GraphExecutor
@@ -101,7 +100,6 @@ async def main():
     print("="*60)
 
     # Initialize
-    settings = get_settings()
     registry = get_registry()
     registry.initialize()  # Initialize is synchronous
 

@@ -22,10 +22,6 @@ from app.services.skill_registry import get_registry
 
 logger = logging.getLogger(__name__)
 
-import logging
-
-logger = logging.getLogger(__name__)
-
 
 class GraphExecutor:
     """Executes skills using LangGraph StateGraph orchestration.

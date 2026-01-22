@@ -6,10 +6,8 @@ This script tests the live Azure Container Apps deployment.
 
 import sys
 import time
-from typing import Dict, Any
 
 import httpx
-
 
 # Azure deployment URL
 BASE_URL = "https://skill-agent-app.livelycliff-37840c5f.eastus.azurecontainerapps.io"

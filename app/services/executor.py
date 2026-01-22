@@ -15,7 +15,7 @@ from app.models.execution import (
     TokenUsage,
     ValidationResult,
 )
-from app.models.schema import LoadedSchema, MergeStrategy
+from app.models.schema import LoadedSchema, MergeStrategy, ValidationRule
 from app.models.skill import Skill, SkillExecutionResult
 from app.services.llm_client import LLMClientError, LLMClientFactory
 from app.services.skill_registry import SkillRegistry, get_registry

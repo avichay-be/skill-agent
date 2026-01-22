@@ -19,6 +19,7 @@ google-generativeai>=0.4.0
 langgraph>=0.2.0
 langchain-core>=0.3.0
 langgraph-checkpoint-sqlite>=1.0.0
+langsmith<0.2.0  # Pin to avoid pydantic v1 conflicts
 
 # File handling
 python-multipart>=0.0.6
