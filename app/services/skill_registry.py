@@ -5,7 +5,7 @@ import logging
 import sys
 from pathlib import Path
 from threading import Lock
-from typing import Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from pydantic import BaseModel
 
