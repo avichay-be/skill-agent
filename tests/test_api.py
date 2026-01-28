@@ -1,8 +1,5 @@
 """Tests for FastAPI endpoints."""
 
-import pytest
-from unittest.mock import patch, MagicMock
-
 
 class TestHealthEndpoint:
     """Tests for health check endpoint."""
@@ -28,10 +25,7 @@ class TestSkillsEndpoint:
 
     def test_list_skills_with_auth(self, app_client, test_api_key):
         """Test listing skills with valid API key."""
-        response = app_client.get(
-            "/api/v1/skills",
-            headers={"X-API-Key": test_api_key}
-        )
+        response = app_client.get("/api/v1/skills", headers={"X-API-Key": test_api_key})
         assert response.status_code == 200
 
         data = response.json()
@@ -41,8 +35,7 @@ class TestSkillsEndpoint:
     def test_list_skills_filter_by_schema(self, app_client, test_api_key):
         """Test filtering skills by schema ID."""
         response = app_client.get(
-            "/api/v1/skills?schema_id=test_schema",
-            headers={"X-API-Key": test_api_key}
+            "/api/v1/skills?schema_id=test_schema", headers={"X-API-Key": test_api_key}
         )
         assert response.status_code == 200
 
@@ -55,10 +48,7 @@ class TestSchemasEndpoint:
 
     def test_list_schemas(self, app_client, test_api_key):
         """Test listing schemas."""
-        response = app_client.get(
-            "/api/v1/schemas",
-            headers={"X-API-Key": test_api_key}
-        )
+        response = app_client.get("/api/v1/schemas", headers={"X-API-Key": test_api_key})
         assert response.status_code == 200
 
         data = response.json()
@@ -68,8 +58,7 @@ class TestSchemasEndpoint:
     def test_get_schema_detail(self, app_client, test_api_key):
         """Test getting schema details."""
         response = app_client.get(
-            "/api/v1/schemas/test_schema",
-            headers={"X-API-Key": test_api_key}
+            "/api/v1/schemas/test_schema", headers={"X-API-Key": test_api_key}
         )
         assert response.status_code == 200
 
@@ -80,8 +69,7 @@ class TestSchemasEndpoint:
     def test_get_schema_not_found(self, app_client, test_api_key):
         """Test getting non-existent schema."""
         response = app_client.get(
-            "/api/v1/schemas/nonexistent",
-            headers={"X-API-Key": test_api_key}
+            "/api/v1/schemas/nonexistent", headers={"X-API-Key": test_api_key}
         )
         assert response.status_code == 404
 
@@ -92,8 +80,7 @@ class TestExecuteEndpoint:
     def test_execute_requires_auth(self, app_client):
         """Test that execution requires API key."""
         response = app_client.post(
-            "/api/v1/execute",
-            json={"document": "test", "schema_id": "test"}
+            "/api/v1/execute", json={"document": "test", "schema_id": "test"}
         )
         assert response.status_code == 401
 
@@ -102,10 +89,7 @@ class TestExecuteEndpoint:
         response = app_client.post(
             "/api/v1/execute",
             headers={"X-API-Key": test_api_key},
-            json={
-                "document": "test document",
-                "schema_id": "nonexistent"
-            }
+            json={"document": "test document", "schema_id": "nonexistent"},
         )
         assert response.status_code == 404
 
@@ -117,8 +101,8 @@ class TestExecuteEndpoint:
             json={
                 "document": "test document",
                 "schema_id": "test_schema",
-                "skill_ids": ["nonexistent_skill"]
-            }
+                "skill_ids": ["nonexistent_skill"],
+            },
         )
         assert response.status_code == 400
 
@@ -139,11 +123,7 @@ class TestWebhookEndpoint:
         """Test Git webhook ignores wrong branch."""
         response = app_client.post(
             "/api/v1/webhooks/git",
-            json={
-                "ref": "refs/heads/feature-branch",
-                "after": "abc123",
-                "commits": []
-            }
+            json={"ref": "refs/heads/feature-branch", "after": "abc123", "commits": []},
         )
         assert response.status_code == 200
 
@@ -158,13 +138,9 @@ class TestWebhookEndpoint:
                 "ref": "refs/heads/main",
                 "after": "abc123",
                 "commits": [
-                    {
-                        "added": ["skills/test_schema/prompts/new.md"],
-                        "modified": [],
-                        "removed": []
-                    }
-                ]
-            }
+                    {"added": ["skills/test_schema/prompts/new.md"], "modified": [], "removed": []}
+                ],
+            },
         )
         assert response.status_code == 200
 
@@ -185,10 +161,7 @@ class TestAdminEndpoint:
 
     def test_get_config(self, app_client, test_api_key):
         """Test getting configuration."""
-        response = app_client.get(
-            "/api/v1/admin/config",
-            headers={"X-API-Key": test_api_key}
-        )
+        response = app_client.get("/api/v1/admin/config", headers={"X-API-Key": test_api_key})
         assert response.status_code == 200
 
         data = response.json()

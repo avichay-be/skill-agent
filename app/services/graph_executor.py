@@ -5,26 +5,21 @@ This replaces the original SkillExecutor with LangGraph orchestration.
 """
 
 import logging
-import time
-from typing import Optional, AsyncIterator, Dict, Any
+from typing import Any, AsyncIterator, Dict, Optional
 from uuid import uuid4
-from datetime import datetime
 
+from app.core.config import get_settings
 from app.models.execution import (
+    ExecutionMetadata,
     ExecutionRequest,
     ExecutionResponse,
     ExecutionStatus,
-    ExecutionMetadata,
-    TokenUsage
+    TokenUsage,
 )
 from app.services.graph.builder import create_skill_execution_graph
 from app.services.graph.state import SkillGraphState
 from app.services.skill_registry import get_registry
-from app.core.config import get_settings
 
-logger = logging.getLogger(__name__)
-
-import logging
 logger = logging.getLogger(__name__)
 
 
@@ -40,13 +35,11 @@ class GraphExecutor:
     """
 
     def __init__(self, settings=None):
-        from app.core.config import get_settings
         self.settings = settings or get_settings()
 
         # Create the compiled graph
         self.graph = create_skill_execution_graph(
-            checkpointer_type="sqlite",
-            checkpoint_db_path="./data/checkpoints.db"
+            checkpointer_type="sqlite", checkpoint_db_path="./data/checkpoints.db"
         )
 
     async def execute(self, request) -> "ExecutionResponse":
@@ -61,8 +54,8 @@ class GraphExecutor:
             ExecutionResponse with results
         """
         from uuid import uuid4
-        from app.models.execution import ExecutionResponse, ExecutionStatus, ExecutionMetadata
-        from datetime import datetime
+
+        from app.models.execution import ExecutionMetadata, ExecutionResponse, ExecutionStatus
 
         execution_id = str(uuid4())
 
@@ -72,17 +65,14 @@ class GraphExecutor:
             schema_id=request.skill_name,
             execution_id=execution_id,
             vendor=request.vendor,
-            model=request.model
+            model=request.model,
         )
 
         try:
             # Run the graph
             config = {"configurable": {"thread_id": execution_id}}
 
-            final_state = await self.graph.ainvoke(
-                initial_state.model_dump(),
-                config=config
-            )
+            final_state = await self.graph.ainvoke(initial_state.model_dump(), config=config)
 
             # Convert graph state to ExecutionResponse
             return self._state_to_response(final_state, request.skill_name)
@@ -93,13 +83,10 @@ class GraphExecutor:
                 status=ExecutionStatus.FAILED,
                 skill_name=request.skill_name,
                 error=str(e),
-                metadata=ExecutionMetadata()
+                metadata=ExecutionMetadata(),
             )
 
-    async def execute_streaming(
-        self,
-        request: ExecutionRequest
-    ) -> AsyncIterator[Dict[str, Any]]:
+    async def execute_streaming(self, request: ExecutionRequest) -> AsyncIterator[Dict[str, Any]]:
         """Execute with streaming progress updates.
 
         This yields progress events as the graph executes, enabling
@@ -118,16 +105,13 @@ class GraphExecutor:
             schema_id=request.skill_name,
             execution_id=execution_id,
             vendor=request.vendor,
-            model=request.model
+            model=request.model,
         )
 
         config = {"configurable": {"thread_id": execution_id}}
 
         # Stream updates from the graph
-        async for event in self.graph.astream(
-            initial_state.model_dump(),
-            config=config
-        ):
+        async for event in self.graph.astream(initial_state.model_dump(), config=config):
             # Each event contains the node name and updated state
             node_name = list(event.keys())[0]
             node_state = event[node_name]
@@ -138,13 +122,11 @@ class GraphExecutor:
                 "node": node_name,
                 "progress": node_state.get("progress_events", []),
                 "status": node_state.get("status", "running"),
-                "execution_id": execution_id
+                "execution_id": execution_id,
             }
 
     async def resume_execution(
-        self,
-        execution_id: str,
-        human_feedback: Optional[Dict[str, Any]] = None
+        self, execution_id: str, human_feedback: Optional[Dict[str, Any]] = None
     ) -> ExecutionResponse:
         """Resume a paused execution (e.g., after human review).
 
@@ -172,11 +154,7 @@ class GraphExecutor:
         schema_id = final_state.get("schema_id", "unknown")
         return self._state_to_response(final_state, schema_id)
 
-    def _state_to_response(
-        self,
-        state: Dict[str, Any],
-        skill_name: str
-    ) -> ExecutionResponse:
+    def _state_to_response(self, state: Dict[str, Any], skill_name: str) -> ExecutionResponse:
         """Convert graph state to ExecutionResponse.
 
         Args:
@@ -213,14 +191,12 @@ class GraphExecutor:
         token_usage = TokenUsage(
             input_tokens=token_usage_dict.get("input_tokens", 0),
             output_tokens=token_usage_dict.get("output_tokens", 0),
-            total_tokens=token_usage_dict.get("total_tokens", 0)
+            total_tokens=token_usage_dict.get("total_tokens", 0),
         )
 
         processing_time_ms = None
         if started_at and completed_at:
-            processing_time_ms = int(
-                (completed_at - started_at).total_seconds() * 1000
-            )
+            processing_time_ms = int((completed_at - started_at).total_seconds() * 1000)
 
         skill_results = state.get("skill_results", [])
 
@@ -233,11 +209,10 @@ class GraphExecutor:
             git_commit=schema.git_commit,
             schema_version=schema.config.version,
             token_usage_by_skill={
-                r.skill_id: TokenUsage(**r.token_usage)
-                for r in skill_results if r.token_usage
+                r.skill_id: TokenUsage(**r.token_usage) for r in skill_results if r.token_usage
             },
             models_used=list(set(r.model_used for r in skill_results)),
-            vendors_used=list(set(r.vendor_used for r in skill_results))
+            vendors_used=list(set(r.vendor_used for r in skill_results)),
         )
 
         # Get errors from failed skills
@@ -255,7 +230,7 @@ class GraphExecutor:
             validation=state.get("validation_result"),
             metadata=metadata,
             skill_results=skill_results,
-            error=error_msg
+            error=error_msg,
         )
 
 

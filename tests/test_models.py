@@ -1,12 +1,9 @@
 """Tests for Pydantic models."""
 
-import pytest
-from datetime import datetime
-
-from app.models.skill import Skill, SkillConfig, SkillStatus, SkillExecutionResult
-from app.models.schema import SchemaConfig, LoadedSchema, MergeStrategy, ValidationRule
-from app.models.events import SkillEvent, EventType, GitWebhookPayload
+from app.models.events import EventType, GitWebhookPayload, SkillEvent
 from app.models.execution import ExecutionRequest, ExecutionResponse, ExecutionStatus
+from app.models.schema import LoadedSchema, MergeStrategy, SchemaConfig, ValidationRule
+from app.models.skill import Skill, SkillConfig, SkillExecutionResult, SkillStatus
 
 
 class TestSkillModels:
@@ -50,9 +47,7 @@ class TestSkillModels:
 
     def test_skill_effective_vendor(self):
         """Test Skill.get_effective_vendor method."""
-        config = SkillConfig(
-            id="test", name="Test", prompt_file="test.md", vendor="anthropic"
-        )
+        config = SkillConfig(id="test", name="Test", prompt_file="test.md", vendor="anthropic")
         skill = Skill(
             id="test",
             name="Test",
@@ -115,32 +110,39 @@ class TestSchemaModels:
 
     def test_loaded_schema_get_skills_by_group(self):
         """Test LoadedSchema.get_skills_by_group method."""
-        config = SchemaConfig(
-            schema_id="test", version="1.0", name="Test"
-        )
+        config = SchemaConfig(schema_id="test", version="1.0", name="Test")
 
-        skill1_config = SkillConfig(
-            id="s1", name="S1", prompt_file="s1.md", parallel_group=2
-        )
-        skill2_config = SkillConfig(
-            id="s2", name="S2", prompt_file="s2.md", parallel_group=1
-        )
-        skill3_config = SkillConfig(
-            id="s3", name="S3", prompt_file="s3.md", parallel_group=2
-        )
+        skill1_config = SkillConfig(id="s1", name="S1", prompt_file="s1.md", parallel_group=2)
+        skill2_config = SkillConfig(id="s2", name="S2", prompt_file="s2.md", parallel_group=1)
+        skill3_config = SkillConfig(id="s3", name="S3", prompt_file="s3.md", parallel_group=2)
 
         skills = {
             "s1": Skill(
-                id="s1", name="S1", prompt="p1", config=skill1_config,
-                schema_id="test", version="v1", file_path="s1.md"
+                id="s1",
+                name="S1",
+                prompt="p1",
+                config=skill1_config,
+                schema_id="test",
+                version="v1",
+                file_path="s1.md",
             ),
             "s2": Skill(
-                id="s2", name="S2", prompt="p2", config=skill2_config,
-                schema_id="test", version="v1", file_path="s2.md"
+                id="s2",
+                name="S2",
+                prompt="p2",
+                config=skill2_config,
+                schema_id="test",
+                version="v1",
+                file_path="s2.md",
             ),
             "s3": Skill(
-                id="s3", name="S3", prompt="p3", config=skill3_config,
-                schema_id="test", version="v1", file_path="s3.md"
+                id="s3",
+                name="S3",
+                prompt="p3",
+                config=skill3_config,
+                schema_id="test",
+                version="v1",
+                file_path="s3.md",
             ),
         }
 

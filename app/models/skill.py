@@ -21,12 +21,12 @@ class SkillConfig(BaseModel):
     id: str = Field(..., description="Unique skill identifier")
     name: str = Field(..., description="Human-readable skill name")
     prompt_file: str = Field(..., description="Relative path to prompt .md file")
-    parallel_group: int = Field(default=1, description="Execution order grouping (lower runs first)")
+    parallel_group: int = Field(
+        default=1, description="Execution order grouping (lower runs first)"
+    )
     timeout_seconds: int = Field(default=45, description="Max execution time")
     retry_count: int = Field(default=2, description="Number of retries on failure")
-    output_fields: List[str] = Field(
-        default_factory=list, description="Fields this skill extracts"
-    )
+    output_fields: List[str] = Field(default_factory=list, description="Fields this skill extracts")
     vendor: Optional[str] = Field(default=None, description="Preferred LLM vendor")
     model: Optional[str] = Field(default=None, description="Preferred model")
     temperature: float = Field(default=0.0, description="LLM temperature")
@@ -61,9 +61,7 @@ class SkillExecutionResult(BaseModel):
     success: bool = Field(..., description="Whether execution succeeded")
     data: Optional[Dict[str, Any]] = Field(default=None, description="Extracted data")
     error: Optional[str] = Field(default=None, description="Error message if failed")
-    token_usage: Dict[str, int] = Field(
-        default_factory=dict, description="Token consumption"
-    )
+    token_usage: Dict[str, int] = Field(default_factory=dict, description="Token consumption")
     execution_time_ms: int = Field(..., description="Execution time in milliseconds")
     model_used: str = Field(..., description="Model that was used")
     vendor_used: str = Field(..., description="Vendor that was used")

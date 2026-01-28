@@ -87,6 +87,12 @@ def create_app() -> FastAPI:
             "docs": "/docs",
         }
 
+    # Health check endpoint
+    @app.get("/health")
+    async def health():
+        """Health check endpoint for container orchestration."""
+        return {"status": "healthy", "service": settings.app_name}
+
     # Generic error handler
     @app.exception_handler(Exception)
     async def generic_exception_handler(request: Request, exc: Exception):
@@ -104,9 +110,10 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    import uvicorn
-    import sys
     import os
+    import sys
+
+    import uvicorn
 
     # Add parent directory to path for proper module imports
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

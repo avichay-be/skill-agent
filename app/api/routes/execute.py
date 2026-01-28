@@ -2,16 +2,16 @@
 
 import json
 import logging
-from typing import Annotated, Optional, Dict, Any
+from typing import Annotated, Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 
-from app.core.security import ApiKeyDep
 from app.core.config import get_settings
+from app.core.security import ApiKeyDep
 from app.models.execution import ExecutionRequest, ExecutionResponse, ExecutionStatus
 from app.services.executor import SkillExecutor, get_executor
-from app.services.graph_executor import GraphExecutor, get_graph_executor
+from app.services.graph_executor import get_graph_executor
 from app.services.skill_registry import SkillRegistry, get_registry
 
 logger = logging.getLogger(__name__)
@@ -115,7 +115,7 @@ async def execute_extraction_from_file(
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unable to decode file. Unsupported encoding. Please upload a text file or convert to UTF-8.",
+                detail="Unable to decode file. Unsupported encoding. Please upload a text file or convert to UTF-8.",
             )
     except Exception as e:
         raise HTTPException(
@@ -185,7 +185,7 @@ async def execute_extraction_streaming(
     if not settings.use_langgraph or not settings.enable_streaming:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Streaming is only available with LangGraph enabled"
+            detail="Streaming is only available with LangGraph enabled",
         )
 
     # Validate skill exists
@@ -196,9 +196,7 @@ async def execute_extraction_streaming(
             detail=f"Skill '{request.skill_name}' not found",
         )
 
-    logger.info(
-        f"Starting streaming extraction with skill '{request.skill_name}'"
-    )
+    logger.info(f"Starting streaming extraction with skill '{request.skill_name}'")
 
     async def event_generator():
         """Generate Server-Sent Events from graph execution."""
@@ -208,16 +206,10 @@ async def execute_extraction_streaming(
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:
             logger.exception(f"Streaming failed: {e}")
-            error_event = {
-                "type": "error",
-                "error": str(e)
-            }
+            error_event = {"type": "error", "error": str(e)}
             yield f"data: {json.dumps(error_event)}\n\n"
 
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream"
-    )
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @router.post("/resume/{execution_id}", response_model=ExecutionResponse)
@@ -245,7 +237,7 @@ async def resume_execution(
     if not settings.use_langgraph or not settings.enable_human_review:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Human review is only available with LangGraph enabled"
+            detail="Human review is only available with LangGraph enabled",
         )
 
     logger.info(f"Resuming execution {execution_id} with feedback: {bool(feedback)}")
@@ -258,7 +250,7 @@ async def resume_execution(
         logger.exception(f"Failed to resume execution {execution_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to resume execution: {str(e)}"
+            detail=f"Failed to resume execution: {str(e)}",
         )
 
 
@@ -298,9 +290,7 @@ async def execute_extraction_legacy(
 
     # Log result
     if response.status == ExecutionStatus.COMPLETED:
-        logger.info(
-            f"Legacy extraction completed in {response.metadata.processing_time_ms}ms"
-        )
+        logger.info(f"Legacy extraction completed in {response.metadata.processing_time_ms}ms")
     elif response.status == ExecutionStatus.PARTIAL:
         logger.warning(f"Legacy extraction partially completed: {response.error}")
     else:

@@ -7,15 +7,14 @@ Each node is a function that takes state and returns updated state.
 import asyncio
 import logging
 import time
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, cast, Optional
 
-from app.models.skill import Skill, SkillExecutionResult
-from app.models.schema import LoadedSchema, MergeStrategy
-from app.models.execution import TokenUsage
-from app.services.skill_registry import get_registry
-from app.services.llm_client import LLMClientFactory, LLMClientError
 from app.core.config import get_settings
+from app.models.schema import MergeStrategy
+from app.models.skill import Skill, SkillExecutionResult
+from app.services.llm_client import LLMClientError, LLMClientFactory
+from app.services.skill_registry import get_registry
 
 logger = logging.getLogger(__name__)
 
@@ -40,20 +39,20 @@ async def initialize_execution(state: Dict[str, Any]) -> Dict[str, Any]:
     # Determine execution order
     groups = sorted(skills_by_group.keys())
 
-    logger.info(
-        f"Initialized execution: {len(active_skills)} skills in {len(groups)} groups"
-    )
+    logger.info(f"Initialized execution: {len(active_skills)} skills in {len(groups)} groups")
 
     return {
         "pending_skills": [s.id for s in active_skills],
         "current_group": groups[0] if groups else 1,
         "status": "running",
-        "progress_events": [{
-            "type": "execution_started",
-            "timestamp": datetime.utcnow().isoformat(),
-            "total_skills": len(active_skills),
-            "groups": groups
-        }]
+        "progress_events": [
+            {
+                "type": "execution_started",
+                "timestamp": datetime.utcnow().isoformat(),
+                "total_skills": len(active_skills),
+                "groups": groups,
+            }
+        ],
     }
 
 
@@ -72,9 +71,7 @@ async def execute_skill_group(state: Dict[str, Any]) -> Dict[str, Any]:
     skills_by_group = schema.get_skills_by_group()
     current_skills = skills_by_group.get(state["current_group"], [])
 
-    logger.info(
-        f"Executing group {state['current_group']} with {len(current_skills)} skills"
-    )
+    logger.info(f"Executing group {state['current_group']} with {len(current_skills)} skills")
 
     # Determine default vendor and model
     vendor = state.get("vendor") or settings.default_vendor
@@ -83,11 +80,7 @@ async def execute_skill_group(state: Dict[str, Any]) -> Dict[str, Any]:
     # Execute skills in parallel using asyncio.gather
     tasks = [
         _execute_single_skill(
-            skill=skill,
-            document=state["document"],
-            vendor=vendor,
-            model=model,
-            settings=settings
+            skill=skill, document=state["document"], vendor=vendor, model=model, settings=settings
         )
         for skill in current_skills
     ]
@@ -105,51 +98,52 @@ async def execute_skill_group(state: Dict[str, Any]) -> Dict[str, Any]:
                     error=str(result),
                     execution_time_ms=0,
                     model_used="unknown",
-                    vendor_used="unknown"
+                    vendor_used="unknown",
                 )
             )
         else:
-            skill_results.append(result)
+            skill_results.append(cast(SkillExecutionResult, result))
 
     # Calculate token usage
     total_tokens = sum(
-        r.token_usage.get("total_tokens", 0)
-        for r in skill_results if r.success and r.token_usage
+        r.token_usage.get("total_tokens", 0) for r in skill_results if r.success and r.token_usage
     )
 
     current_token_usage = state.get("token_usage", {})
     updated_token_usage = {
-        "input_tokens": current_token_usage.get("input_tokens", 0) + sum(
+        "input_tokens": current_token_usage.get("input_tokens", 0)
+        + sum(
             r.token_usage.get("input_tokens", 0)
-            for r in skill_results if r.success and r.token_usage
+            for r in skill_results
+            if r.success and r.token_usage
         ),
-        "output_tokens": current_token_usage.get("output_tokens", 0) + sum(
+        "output_tokens": current_token_usage.get("output_tokens", 0)
+        + sum(
             r.token_usage.get("output_tokens", 0)
-            for r in skill_results if r.success and r.token_usage
+            for r in skill_results
+            if r.success and r.token_usage
         ),
-        "total_tokens": current_token_usage.get("total_tokens", 0) + total_tokens
+        "total_tokens": current_token_usage.get("total_tokens", 0) + total_tokens,
     }
 
     return {
         "skill_results": skill_results,
         "completed_groups": [state["current_group"]],
         "token_usage": updated_token_usage,
-        "progress_events": [{
-            "type": "group_completed",
-            "group": state["current_group"],
-            "timestamp": datetime.utcnow().isoformat(),
-            "successful_results": len([r for r in skill_results if r.success]),
-            "total_results": len(skill_results)
-        }]
+        "progress_events": [
+            {
+                "type": "group_completed",
+                "group": state["current_group"],
+                "timestamp": datetime.utcnow().isoformat(),
+                "successful_results": len([r for r in skill_results if r.success]),
+                "total_results": len(skill_results),
+            }
+        ],
     }
 
 
 async def _execute_single_skill(
-    skill: Skill,
-    document: str,
-    vendor: str,
-    model: Optional[str],
-    settings
+    skill: Skill, document: str, vendor: str, model: Optional[str], settings: Any
 ) -> SkillExecutionResult:
     """Execute a single skill with retries.
 
@@ -178,14 +172,13 @@ async def _execute_single_skill(
                     document,
                     temperature=skill.config.temperature,
                 ),
-                timeout=skill.config.timeout_seconds
+                timeout=skill.config.timeout_seconds,
             )
 
             execution_time = int((time.time() - start_time) * 1000)
 
             logger.info(
-                f"Skill '{skill.id}' completed in {execution_time}ms "
-                f"(tokens: {usage.total_tokens})"
+                f"Skill '{skill.id}' completed in {execution_time}ms (tokens: {usage.total_tokens})"
             )
 
             return SkillExecutionResult(
@@ -231,19 +224,19 @@ async def _execute_single_skill(
     )
 
 
-def _get_default_model_for_vendor(vendor: str, settings) -> str:
+def _get_default_model_for_vendor(vendor: str, settings: Any) -> str:
     """Get the default model for a specific vendor."""
     vendor_lower = vendor.lower()
 
     if vendor_lower == "anthropic":
-        return settings.anthropic_model
+        return str(settings.anthropic_model)
     elif vendor_lower == "openai":
-        return settings.openai_model
+        return str(settings.openai_model)
     elif vendor_lower == "gemini":
-        return settings.gemini_model
+        return str(settings.gemini_model)
     else:
         logger.warning(f"Unknown vendor '{vendor}', defaulting to Anthropic")
-        return settings.anthropic_model
+        return str(settings.anthropic_model)
 
 
 # ===== 3. Merge Results Node =====
@@ -259,10 +252,7 @@ async def merge_skill_results(state: Dict[str, Any]) -> Dict[str, Any]:
     merged = state.get("merged_data", {}).copy()
 
     # Get only successful results with data
-    new_results = [
-        r for r in state.get("skill_results", [])
-        if r.success and r.data
-    ]
+    new_results = [r for r in state.get("skill_results", []) if r.success and r.data]
 
     for result in new_results:
         if strategy == MergeStrategy.FIRST_WINS:
@@ -281,12 +271,14 @@ async def merge_skill_results(state: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "merged_data": merged,
-        "progress_events": [{
-            "type": "merge_completed",
-            "timestamp": datetime.utcnow().isoformat(),
-            "fields": len(merged),
-            "strategy": strategy.value
-        }]
+        "progress_events": [
+            {
+                "type": "merge_completed",
+                "timestamp": datetime.utcnow().isoformat(),
+                "fields": len(merged),
+                "strategy": strategy.value,
+            }
+        ],
     }
 
 
@@ -295,11 +287,7 @@ def _deep_merge(base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
     result = base.copy()
 
     for key, value in update.items():
-        if (
-            key in result
-            and isinstance(result[key], dict)
-            and isinstance(value, dict)
-        ):
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = _deep_merge(result[key], value)
         else:
             result[key] = value
@@ -325,17 +313,21 @@ async def validate_results(state: Dict[str, Any]) -> Dict[str, Any]:
     if schema.output_model:
         try:
             schema.output_model(**merged_data)
-            checks.append({
-                "name": "pydantic_validation",
-                "status": "passed",
-            })
+            checks.append(
+                {
+                    "name": "pydantic_validation",
+                    "status": "passed",
+                }
+            )
         except Exception as e:
             errors.append(f"Pydantic validation failed: {e}")
-            checks.append({
-                "name": "pydantic_validation",
-                "status": "failed",
-                "error": str(e),
-            })
+            checks.append(
+                {
+                    "name": "pydantic_validation",
+                    "status": "failed",
+                    "error": str(e),
+                }
+            )
 
     # Run custom validation rules
     for rule in schema.config.post_processing.validation_rules:
@@ -361,6 +353,7 @@ async def validate_results(state: Dict[str, Any]) -> Dict[str, Any]:
         status = "PASS"
 
     from app.models.execution import ValidationResult
+
     validation = ValidationResult(
         status=status,
         quality_score=quality_score,
@@ -376,13 +369,15 @@ async def validate_results(state: Dict[str, Any]) -> Dict[str, Any]:
         "validation_result": validation,
         "quality_score": quality_score,
         "human_review_required": human_review,
-        "progress_events": [{
-            "type": "validation_completed",
-            "timestamp": datetime.utcnow().isoformat(),
-            "status": status,
-            "errors": len(errors),
-            "warnings": len(warnings)
-        }]
+        "progress_events": [
+            {
+                "type": "validation_completed",
+                "timestamp": datetime.utcnow().isoformat(),
+                "status": status,
+                "errors": len(errors),
+                "warnings": len(warnings),
+            }
+        ],
     }
 
 
@@ -413,9 +408,7 @@ def _run_validation_rule(rule, data: Dict[str, Any]) -> Dict[str, Any]:
 
         elif rule.type == "required":
             fields = rule.params.get("fields", [])
-            missing = [
-                f for f in fields if _get_nested_value(data, f) is None
-            ]
+            missing = [f for f in fields if _get_nested_value(data, f) is None]
 
             if missing:
                 return {
@@ -446,7 +439,11 @@ def _run_validation_rule(rule, data: Dict[str, Any]) -> Dict[str, Any]:
             return {"name": rule.name, "status": "passed"}
 
         else:
-            return {"name": rule.name, "status": "skipped", "reason": f"Unknown rule type: {rule.type}"}
+            return {
+                "name": rule.name,
+                "status": "skipped",
+                "reason": f"Unknown rule type: {rule.type}",
+            }
 
     except Exception as e:
         return {"name": rule.name, "status": "error", "error": str(e)}
@@ -477,12 +474,16 @@ async def human_review_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "status": "paused",
-        "progress_events": [{
-            "type": "human_review_requested",
-            "timestamp": datetime.utcnow().isoformat(),
-            "reason": "validation_failed",
-            "errors": state.get("validation_result", {}).get("errors", []) if state.get("validation_result") else []
-        }]
+        "progress_events": [
+            {
+                "type": "human_review_requested",
+                "timestamp": datetime.utcnow().isoformat(),
+                "reason": "validation_failed",
+                "errors": state.get("validation_result", {}).get("errors", [])
+                if state.get("validation_result")
+                else [],
+            }
+        ],
     }
 
 
@@ -508,10 +509,7 @@ async def route_next_action(state: Dict[str, Any]) -> Dict[str, Any]:
     if remaining_groups:
         next_action = "execute_next_group"
         next_group = remaining_groups[0]
-        return {
-            "next_action": next_action,
-            "current_group": next_group
-        }
+        return {"next_action": next_action, "current_group": next_group}
 
     # All groups completed - check validation
     validation_result = state.get("validation_result")
@@ -524,18 +522,12 @@ async def route_next_action(state: Dict[str, Any]) -> Dict[str, Any]:
                 return {
                     "next_action": "retry",
                     "should_retry": True,
-                    "retry_count": retry_count + 1
+                    "retry_count": retry_count + 1,
                 }
             elif state.get("human_review_required", False):
-                return {
-                    "next_action": "human_review"
-                }
+                return {"next_action": "human_review"}
 
-    return {
-        "next_action": "complete",
-        "status": "completed",
-        "completed_at": datetime.utcnow()
-    }
+    return {"next_action": "complete", "status": "completed", "completed_at": datetime.utcnow()}
 
 
 # ===== 7. Checkpoint Node =====
@@ -548,12 +540,14 @@ async def save_checkpoint(state: Dict[str, Any]) -> Dict[str, Any]:
     logger.info(f"Checkpoint saved for execution {state['execution_id']}")
 
     return {
-        "progress_events": [{
-            "type": "checkpoint_saved",
-            "timestamp": datetime.utcnow().isoformat(),
-            "current_group": state.get("current_group"),
-            "completed_groups": state.get("completed_groups", [])
-        }]
+        "progress_events": [
+            {
+                "type": "checkpoint_saved",
+                "timestamp": datetime.utcnow().isoformat(),
+                "current_group": state.get("current_group"),
+                "completed_groups": state.get("completed_groups", []),
+            }
+        ]
     }
 
 
@@ -573,10 +567,7 @@ async def analyze_document_and_select_skills(state: Dict[str, Any]) -> Dict[str,
 
     # Get available skills
     available_skills = schema.get_active_skills()
-    skill_descriptions = "\n".join([
-        f"- {s.id}: {s.name}"
-        for s in available_skills
-    ])
+    skill_descriptions = "\n".join([f"- {s.id}: {s.name}" for s in available_skills])
 
     analysis_prompt = f"""Analyze this document and determine which extraction skills are most relevant.
 
@@ -584,7 +575,7 @@ Available skills:
 {skill_descriptions}
 
 Document preview (first 1000 chars):
-{state['document'][:1000]}
+{state["document"][:1000]}
 
 Return a JSON object with:
 {{
@@ -594,9 +585,7 @@ Return a JSON object with:
 """
 
     result, _ = await client.extract_json(
-        "You are a document analysis expert.",
-        analysis_prompt,
-        temperature=0.0
+        "You are a document analysis expert.", analysis_prompt, temperature=0.0
     )
 
     selected_skill_ids = result.get("relevant_skills", [])
@@ -607,10 +596,12 @@ Return a JSON object with:
 
     return {
         "pending_skills": selected_skill_ids,
-        "progress_events": [{
-            "type": "skills_selected",
-            "timestamp": datetime.utcnow().isoformat(),
-            "selected": selected_skill_ids,
-            "reasoning": result.get("reasoning", "")
-        }]
+        "progress_events": [
+            {
+                "type": "skills_selected",
+                "timestamp": datetime.utcnow().isoformat(),
+                "selected": selected_skill_ids,
+                "reasoning": result.get("reasoning", ""),
+            }
+        ],
     }

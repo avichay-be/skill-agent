@@ -1,7 +1,7 @@
 """Skills API routes."""
 
 import logging
-from typing import Annotated, List, Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 

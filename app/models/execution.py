@@ -80,6 +80,6 @@ class ExecutionResponse(BaseModel):
 
 
 # Import to avoid circular dependency
-from app.models.skill import SkillExecutionResult
+from app.models.skill import SkillExecutionResult  # noqa: E402
 
 ExecutionResponse.model_rebuild()

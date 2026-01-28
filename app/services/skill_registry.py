@@ -3,7 +3,6 @@
 import importlib.util
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
 from threading import Lock
 from typing import Dict, List, Optional, Type
@@ -14,7 +13,7 @@ from app.core.config import Settings, get_settings
 from app.models.events import EventType, SkillEvent
 from app.models.schema import LoadedSchema, SchemaConfig
 from app.models.skill import Skill, SkillStatus
-from app.services.git_loader import GitLoader, GitLoaderError
+from app.services.git_loader import GitLoader
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +30,13 @@ class SkillRegistry:
     _instance: Optional["SkillRegistry"] = None
     _lock = Lock()
 
-    def __new__(cls, *args, **kwargs) -> "SkillRegistry":
+    def __new__(cls, *args: Any, **kwargs: Any) -> "SkillRegistry":
         """Singleton pattern for registry."""
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
                     cls._instance = super().__new__(cls)
-                    cls._instance._initialized = False
+                    cls._instance._initialized: bool = False
         return cls._instance
 
     def __init__(self, settings: Optional[Settings] = None):
@@ -69,7 +68,7 @@ class SkillRegistry:
         event_type: EventType,
         schema_id: Optional[str] = None,
         skill_id: Optional[str] = None,
-        payload: Optional[Dict] = None,
+        payload: Optional[Dict[str, Any]] = None,
     ) -> SkillEvent:
         """Emit and store an event."""
         event = SkillEvent(
@@ -150,9 +149,7 @@ class SkillRegistry:
         logger.info(f"Loaded schema '{schema_id}' v{config.version} with {len(skills)} skills")
         return loaded_schema
 
-    def _load_output_model(
-        self, schema_dir: Path, model_path: str
-    ) -> Optional[Type[BaseModel]]:
+    def _load_output_model(self, schema_dir: Path, model_path: str) -> Optional[Type[BaseModel]]:
         """Dynamically load a Pydantic model from the skills directory.
 
         Args:
@@ -193,7 +190,7 @@ class SkillRegistry:
 
             if model_class and issubclass(model_class, BaseModel):
                 logger.info(f"Loaded output model: {class_name}")
-                return model_class
+                return model_class  # type: ignore[no-any-return]
             else:
                 logger.warning(f"Class '{class_name}' not found or not a BaseModel")
                 return None
@@ -215,7 +212,9 @@ class SkillRegistry:
         self._current_commit = self._git_loader.clone_or_pull()
 
         if self._current_commit != old_commit:
-            logger.info(f"New commit detected: {old_commit[:8]} -> {self._current_commit[:8]}")
+            old_hash = old_commit[:8] if old_commit else "none"
+            new_hash = self._current_commit[:8] if self._current_commit else "none"
+            logger.info(f"New commit detected: {old_hash} -> {new_hash}")
 
             # Reload all schemas
             schema_ids = self._git_loader.list_schemas()
@@ -301,7 +300,7 @@ class SkillRegistry:
 
     def list_skills(self, schema_id: Optional[str] = None) -> List[Skill]:
         """List skills, optionally filtered by schema."""
-        skills = []
+        skills: List[Skill] = []
 
         if schema_id:
             schema = self._schemas.get(schema_id)

@@ -1,8 +1,8 @@
 """Tests for Git loader service."""
 
-import json
-import pytest
 from pathlib import Path
+
+import pytest
 
 from app.services.git_loader import GitLoader, GitLoaderError
 
@@ -14,6 +14,7 @@ class TestGitLoader:
         """Test listing available schemas."""
         # Create settings mock
         from unittest.mock import MagicMock
+
         settings = MagicMock()
         settings.github_repo_url = ""
         settings.local_skills_path = str(temp_skills_dir)
@@ -28,6 +29,7 @@ class TestGitLoader:
     def test_load_schema_config(self, temp_skills_dir: Path):
         """Test loading schema configuration."""
         from unittest.mock import MagicMock
+
         settings = MagicMock()
         settings.github_repo_url = ""
         settings.local_skills_path = str(temp_skills_dir)
@@ -45,6 +47,7 @@ class TestGitLoader:
     def test_load_skill_prompt(self, temp_skills_dir: Path):
         """Test loading skill prompt content."""
         from unittest.mock import MagicMock
+
         settings = MagicMock()
         settings.github_repo_url = ""
         settings.local_skills_path = str(temp_skills_dir)
@@ -62,6 +65,7 @@ class TestGitLoader:
     def test_load_full_schema(self, temp_skills_dir: Path):
         """Test loading a full schema with all skills."""
         from unittest.mock import MagicMock
+
         settings = MagicMock()
         settings.github_repo_url = ""
         settings.local_skills_path = str(temp_skills_dir)
@@ -80,6 +84,7 @@ class TestGitLoader:
     def test_get_changed_schemas(self, temp_skills_dir: Path):
         """Test determining affected schemas from file changes."""
         from unittest.mock import MagicMock
+
         settings = MagicMock()
         settings.github_repo_url = ""
         settings.local_skills_path = str(temp_skills_dir)
@@ -102,6 +107,7 @@ class TestGitLoader:
     def test_schema_not_found(self, temp_skills_dir: Path):
         """Test error when schema not found."""
         from unittest.mock import MagicMock
+
         settings = MagicMock()
         settings.github_repo_url = ""
         settings.local_skills_path = str(temp_skills_dir)
@@ -116,6 +122,7 @@ class TestGitLoader:
     def test_no_config_error(self):
         """Test error when no Git URL or local path configured."""
         from unittest.mock import MagicMock
+
         settings = MagicMock()
         settings.github_repo_url = ""
         settings.local_skills_path = ""

@@ -2,11 +2,10 @@
 
 import json
 import logging
-import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from git import Repo
 from git.exc import GitCommandError, InvalidGitRepositoryError
@@ -52,9 +51,7 @@ class GitLoader:
         if self.settings.github_token and "github.com" in url:
             # Insert token for HTTPS URLs
             if url.startswith("https://"):
-                url = url.replace(
-                    "https://", f"https://{self.settings.github_token}@"
-                )
+                url = url.replace("https://", f"https://{self.settings.github_token}@")
         return url
 
     def clone_or_pull(self, target_path: Optional[str] = None) -> str:
@@ -248,6 +245,11 @@ class GitLoader:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Any,
+    ) -> None:
         """Context manager exit with cleanup."""
         self.cleanup()

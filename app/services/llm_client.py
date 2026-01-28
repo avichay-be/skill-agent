@@ -73,7 +73,7 @@ class BaseLLMClient(ABC):
         # Clean up and parse
         text = text.strip()
         try:
-            return json.loads(text)
+            return json.loads(text)  # type: ignore[no-any-return]
         except json.JSONDecodeError as e:
             raise LLMClientError(f"Failed to parse JSON response: {e}")
 
@@ -106,7 +106,12 @@ class AnthropicClient(BaseLLMClient):
                 messages=[{"role": "user", "content": document}],
             )
 
-            text = response.content[0].text
+            # Extract text from response content
+            content_block = response.content[0]
+            if hasattr(content_block, "text"):
+                text = content_block.text  # type: ignore[union-attr]
+            else:
+                raise LLMClientError(f"Unexpected content block type: {type(content_block)}")
             usage = TokenUsage(
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
@@ -211,9 +216,9 @@ class GeminiClient(BaseLLMClient):
     def __init__(self, api_key: str, model: str):
         self.model = model
         try:
-            import google.generativeai as genai
+            import google.generativeai as genai  # type: ignore[import-not-found]
 
-            genai.configure(api_key=api_key)
+            genai.configure(api_key=api_key)  # type: ignore[attr-defined]
             self.genai = genai
         except ImportError:
             raise LLMClientError("google-generativeai package not installed")
@@ -226,10 +231,10 @@ class GeminiClient(BaseLLMClient):
         max_tokens: int = 4096,
     ) -> Tuple[str, TokenUsage]:
         try:
-            model = self.genai.GenerativeModel(
+            model = self.genai.GenerativeModel(  # type: ignore[attr-defined]
                 self.model,
                 system_instruction=prompt,
-                generation_config=self.genai.GenerationConfig(
+                generation_config=self.genai.GenerationConfig(  # type: ignore[attr-defined]
                     temperature=temperature,
                     max_output_tokens=max_tokens,
                 ),
@@ -304,13 +309,13 @@ class LLMClientFactory:
             api_key = settings.openai_api_key
             if not api_key:
                 raise LLMClientError("OPENAI_API_KEY not configured")
-            client_cls = OpenAIClient
+            client_cls = OpenAIClient  # type: ignore[assignment]
         elif vendor == "gemini":
             model = model or settings.gemini_model
             api_key = settings.google_api_key
             if not api_key:
                 raise LLMClientError("GOOGLE_API_KEY not configured")
-            client_cls = GeminiClient
+            client_cls = GeminiClient  # type: ignore[assignment]
         else:
             raise LLMClientError(f"Unknown vendor: {vendor}")
 

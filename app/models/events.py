@@ -61,12 +61,8 @@ class GitWebhookPayload(BaseModel):
     ref: Optional[str] = Field(default=None, description="Git ref (e.g., refs/heads/main)")
     before: Optional[str] = Field(default=None, description="Previous commit SHA")
     after: Optional[str] = Field(default=None, description="New commit SHA")
-    commits: List[Dict[str, Any]] = Field(
-        default_factory=list, description="List of commits"
-    )
-    repository: Optional[Dict[str, Any]] = Field(
-        default=None, description="Repository info"
-    )
+    commits: List[Dict[str, Any]] = Field(default_factory=list, description="List of commits")
+    repository: Optional[Dict[str, Any]] = Field(default=None, description="Repository info")
 
     def get_branch(self) -> Optional[str]:
         """Extract branch name from ref."""

@@ -107,7 +107,7 @@ async def reload_registry(
 async def get_config(
     _api_key: ApiKeyDep,
     settings: Annotated[Settings, Depends(get_settings)],
-) -> dict:
+) -> Dict[str, Any]:
     """Get current configuration (non-sensitive values only)."""
     return {
         "app_name": settings.app_name,
