@@ -8,7 +8,7 @@ import asyncio
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, cast, Optional
 
 from app.core.config import get_settings
 from app.models.schema import MergeStrategy
@@ -102,7 +102,7 @@ async def execute_skill_group(state: Dict[str, Any]) -> Dict[str, Any]:
                 )
             )
         else:
-            skill_results.append(result)
+            skill_results.append(cast(SkillExecutionResult, result))
 
     # Calculate token usage
     total_tokens = sum(
@@ -143,7 +143,7 @@ async def execute_skill_group(state: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def _execute_single_skill(
-    skill: Skill, document: str, vendor: str, model: Optional[str], settings
+    skill: Skill, document: str, vendor: str, model: Optional[str], settings: Any
 ) -> SkillExecutionResult:
     """Execute a single skill with retries.
 
@@ -224,19 +224,19 @@ async def _execute_single_skill(
     )
 
 
-def _get_default_model_for_vendor(vendor: str, settings) -> str:
+def _get_default_model_for_vendor(vendor: str, settings: Any) -> str:
     """Get the default model for a specific vendor."""
     vendor_lower = vendor.lower()
 
     if vendor_lower == "anthropic":
-        return settings.anthropic_model
+        return str(settings.anthropic_model)
     elif vendor_lower == "openai":
-        return settings.openai_model
+        return str(settings.openai_model)
     elif vendor_lower == "gemini":
-        return settings.gemini_model
+        return str(settings.gemini_model)
     else:
         logger.warning(f"Unknown vendor '{vendor}', defaulting to Anthropic")
-        return settings.anthropic_model
+        return str(settings.anthropic_model)
 
 
 # ===== 3. Merge Results Node =====

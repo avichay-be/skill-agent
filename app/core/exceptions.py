@@ -36,7 +36,7 @@ class SkillNotFoundError(SkillAgentError):
 class RegistryNotInitializedError(SkillAgentError):
     """Registry not initialized."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "Skill registry not initialized. Call /admin/reload first.",
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

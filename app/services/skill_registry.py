@@ -30,13 +30,13 @@ class SkillRegistry:
     _instance: Optional["SkillRegistry"] = None
     _lock = Lock()
 
-    def __new__(cls, *args, **kwargs) -> "SkillRegistry":
+    def __new__(cls, *args: Any, **kwargs: Any) -> "SkillRegistry":
         """Singleton pattern for registry."""
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
                     cls._instance = super().__new__(cls)
-                    cls._instance._initialized = False
+                    cls._instance._initialized: bool = False
         return cls._instance
 
     def __init__(self, settings: Optional[Settings] = None):
@@ -68,7 +68,7 @@ class SkillRegistry:
         event_type: EventType,
         schema_id: Optional[str] = None,
         skill_id: Optional[str] = None,
-        payload: Optional[Dict] = None,
+        payload: Optional[Dict[str, Any]] = None,
     ) -> SkillEvent:
         """Emit and store an event."""
         event = SkillEvent(
@@ -190,7 +190,7 @@ class SkillRegistry:
 
             if model_class and issubclass(model_class, BaseModel):
                 logger.info(f"Loaded output model: {class_name}")
-                return model_class
+                return model_class  # type: ignore[no-any-return]
             else:
                 logger.warning(f"Class '{class_name}' not found or not a BaseModel")
                 return None
@@ -212,7 +212,9 @@ class SkillRegistry:
         self._current_commit = self._git_loader.clone_or_pull()
 
         if self._current_commit != old_commit:
-            logger.info(f"New commit detected: {old_commit[:8]} -> {self._current_commit[:8]}")
+            old_hash = old_commit[:8] if old_commit else "none"
+            new_hash = self._current_commit[:8] if self._current_commit else "none"
+            logger.info(f"New commit detected: {old_hash} -> {new_hash}")
 
             # Reload all schemas
             schema_ids = self._git_loader.list_schemas()
@@ -298,7 +300,7 @@ class SkillRegistry:
 
     def list_skills(self, schema_id: Optional[str] = None) -> List[Skill]:
         """List skills, optionally filtered by schema."""
-        skills = []
+        skills: List[Skill] = []
 
         if schema_id:
             schema = self._schemas.get(schema_id)

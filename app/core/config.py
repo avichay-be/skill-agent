@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # API Keys for authentication (comma-separated string in env)
     api_keys_str: str = Field(default="dev-api-key", alias="api_keys")
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def api_keys(self) -> List[str]:
         """Parse comma-separated API keys."""

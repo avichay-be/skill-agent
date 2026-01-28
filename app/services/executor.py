@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from app.core.config import Settings, get_settings
 from app.models.execution import (
@@ -208,7 +208,7 @@ class SkillExecutor:
                         )
                     )
                 else:
-                    all_results.append(result)
+                    all_results.append(cast(SkillExecutionResult, result))
 
         return all_results
 
@@ -465,7 +465,9 @@ class SkillExecutor:
                 expected_field = rule.params.get("expected")
                 operands = rule.params.get("operands", [])
 
-                expected_value = self._get_nested_value(data, expected_field)
+                expected_value = (
+                    self._get_nested_value(data, expected_field) if expected_field else None
+                )
                 calculated = 0
 
                 for op in operands:
@@ -502,7 +504,7 @@ class SkillExecutor:
                 min_val = rule.params.get("min")
                 max_val = rule.params.get("max")
 
-                value = self._get_nested_value(data, field)
+                value = self._get_nested_value(data, field) if field else None
 
                 if value is None:
                     return {"name": rule.name, "status": "skipped", "reason": "Field not found"}

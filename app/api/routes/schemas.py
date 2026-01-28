@@ -56,7 +56,7 @@ async def reload_schema(
     schema_id: str,
     _api_key: ApiKeyDep,
     registry: Annotated[SkillRegistry, Depends(get_registry)],
-) -> dict:
+) -> Dict[str, Any]:
     """Force reload a specific schema from Git."""
     try:
         loaded = registry.reload_schema(schema_id)
