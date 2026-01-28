@@ -185,7 +185,7 @@ async def execute_extraction_streaming(
     if not settings.use_langgraph or not settings.enable_streaming:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Streaming is only available with LangGraph enabled"
+            detail="Streaming is only available with LangGraph enabled",
         )
 
     # Validate skill exists
@@ -196,9 +196,7 @@ async def execute_extraction_streaming(
             detail=f"Skill '{request.skill_name}' not found",
         )
 
-    logger.info(
-        f"Starting streaming extraction with skill '{request.skill_name}'"
-    )
+    logger.info(f"Starting streaming extraction with skill '{request.skill_name}'")
 
     async def event_generator():
         """Generate Server-Sent Events from graph execution."""
@@ -208,16 +206,10 @@ async def execute_extraction_streaming(
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:
             logger.exception(f"Streaming failed: {e}")
-            error_event = {
-                "type": "error",
-                "error": str(e)
-            }
+            error_event = {"type": "error", "error": str(e)}
             yield f"data: {json.dumps(error_event)}\n\n"
 
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream"
-    )
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @router.post("/resume/{execution_id}", response_model=ExecutionResponse)
@@ -245,7 +237,7 @@ async def resume_execution(
     if not settings.use_langgraph or not settings.enable_human_review:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Human review is only available with LangGraph enabled"
+            detail="Human review is only available with LangGraph enabled",
         )
 
     logger.info(f"Resuming execution {execution_id} with feedback: {bool(feedback)}")
@@ -258,7 +250,7 @@ async def resume_execution(
         logger.exception(f"Failed to resume execution {execution_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to resume execution: {str(e)}"
+            detail=f"Failed to resume execution: {str(e)}",
         )
 
 
@@ -298,9 +290,7 @@ async def execute_extraction_legacy(
 
     # Log result
     if response.status == ExecutionStatus.COMPLETED:
-        logger.info(
-            f"Legacy extraction completed in {response.metadata.processing_time_ms}ms"
-        )
+        logger.info(f"Legacy extraction completed in {response.metadata.processing_time_ms}ms")
     elif response.status == ExecutionStatus.PARTIAL:
         logger.warning(f"Legacy extraction partially completed: {response.error}")
     else:

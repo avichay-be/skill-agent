@@ -46,9 +46,7 @@ class SchemaConfig(BaseModel):
     output_model: Optional[str] = Field(
         default=None, description="Python path to Pydantic output model"
     )
-    skills: List["SkillConfig"] = Field(
-        default_factory=list, description="Skill configurations"
-    )
+    skills: List["SkillConfig"] = Field(default_factory=list, description="Skill configurations")
     post_processing: PostProcessing = Field(
         default_factory=PostProcessing, description="Post-processing config"
     )

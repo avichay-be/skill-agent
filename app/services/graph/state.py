@@ -31,33 +31,31 @@ class SkillGraphState(BaseModel):
     # ===== Execution Context =====
     current_group: int = Field(default=1, description="Current parallel group being executed")
     completed_groups: List[int] = Field(default_factory=list, description="Groups that completed")
-    pending_skills: List[str] = Field(default_factory=list, description="Skills queued for execution")
+    pending_skills: List[str] = Field(
+        default_factory=list, description="Skills queued for execution"
+    )
     active_skills: List[str] = Field(default_factory=list, description="Skills currently running")
 
     # ===== Accumulated Results =====
     # Use Annotated with 'add' reducer to append results across nodes
     skill_results: Annotated[List[SkillExecutionResult], add] = Field(
-        default_factory=list,
-        description="Results from all executed skills"
+        default_factory=list, description="Results from all executed skills"
     )
 
     # Merged data - updated by merge node
     merged_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Merged output from all skills"
+        default_factory=dict, description="Merged output from all skills"
     )
 
     # ===== Validation & Quality =====
     validation_result: Optional[ValidationResult] = Field(
-        None,
-        description="Validation result after execution"
+        None, description="Validation result after execution"
     )
     quality_score: int = Field(default=100, description="Overall quality score")
 
     # ===== Metadata =====
     token_usage: TokenUsage = Field(
-        default_factory=TokenUsage,
-        description="Cumulative token usage"
+        default_factory=TokenUsage, description="Cumulative token usage"
     )
     started_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
@@ -73,28 +71,24 @@ class SkillGraphState(BaseModel):
     # Dynamic routing
     next_action: Optional[str] = Field(None, description="Next action to take")
     conditional_branches: Dict[str, bool] = Field(
-        default_factory=dict,
-        description="Conditional branch flags"
+        default_factory=dict, description="Conditional branch flags"
     )
 
     # ===== Error Handling =====
     errors: Annotated[List[str], add] = Field(
-        default_factory=list,
-        description="Accumulated errors"
+        default_factory=list, description="Accumulated errors"
     )
     status: str = Field(default="running", description="pending|running|completed|failed|paused")
 
     # ===== Advanced Features =====
     # For sub-graph support
     sub_executions: Dict[str, Dict[str, Any]] = Field(
-        default_factory=dict,
-        description="Results from sub-graph executions"
+        default_factory=dict, description="Results from sub-graph executions"
     )
 
     # For streaming progress
     progress_events: Annotated[List[Dict[str, Any]], add] = Field(
-        default_factory=list,
-        description="Progress events for streaming"
+        default_factory=list, description="Progress events for streaming"
     )
 
     class Config:

@@ -34,7 +34,7 @@ class TestSkillRegistry:
         settings.local_skills_path = str(temp_skills_dir)
         settings.skills_base_path = ""
 
-        with patch('app.services.skill_registry.get_settings', return_value=settings):
+        with patch("app.services.skill_registry.get_settings", return_value=settings):
             registry = SkillRegistry(settings)
             commit = registry.initialize()
 
@@ -51,7 +51,7 @@ class TestSkillRegistry:
         settings.local_skills_path = str(temp_skills_dir)
         settings.skills_base_path = ""
 
-        with patch('app.services.skill_registry.get_settings', return_value=settings):
+        with patch("app.services.skill_registry.get_settings", return_value=settings):
             registry = SkillRegistry(settings)
             registry.initialize()
 
@@ -71,7 +71,7 @@ class TestSkillRegistry:
         settings.local_skills_path = str(temp_skills_dir)
         settings.skills_base_path = ""
 
-        with patch('app.services.skill_registry.get_settings', return_value=settings):
+        with patch("app.services.skill_registry.get_settings", return_value=settings):
             registry = SkillRegistry(settings)
             registry.initialize()
 
@@ -92,7 +92,7 @@ class TestSkillRegistry:
         settings.local_skills_path = str(temp_skills_dir)
         settings.skills_base_path = ""
 
-        with patch('app.services.skill_registry.get_settings', return_value=settings):
+        with patch("app.services.skill_registry.get_settings", return_value=settings):
             registry = SkillRegistry(settings)
             registry.initialize()
 
@@ -117,7 +117,7 @@ class TestSkillRegistry:
         settings.local_skills_path = str(temp_skills_dir)
         settings.skills_base_path = ""
 
-        with patch('app.services.skill_registry.get_settings', return_value=settings):
+        with patch("app.services.skill_registry.get_settings", return_value=settings):
             registry = SkillRegistry(settings)
             registry.initialize()
 
@@ -137,7 +137,7 @@ class TestSkillRegistry:
         settings.local_skills_path = str(temp_skills_dir)
         settings.skills_base_path = ""
 
-        with patch('app.services.skill_registry.get_settings', return_value=settings):
+        with patch("app.services.skill_registry.get_settings", return_value=settings):
             registry = SkillRegistry(settings)
             registry.initialize()
 

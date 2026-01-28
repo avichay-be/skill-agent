@@ -36,7 +36,7 @@ def temp_skills_dir() -> Generator[Path, None, None]:
 
         # Write schema.json
         schema_json = schema_dir / "schema.json"
-        schema_json.write_text('''
+        schema_json.write_text("""
 {
     "schema_id": "test_schema",
     "version": "1.0.0",
@@ -67,21 +67,21 @@ def temp_skills_dir() -> Generator[Path, None, None]:
         "validation_rules": []
     }
 }
-''')
+""")
 
         # Write prompt files
         (prompts_dir / "skill_1.md").write_text("# Skill 1\nExtract field1 from the document.")
         (prompts_dir / "skill_2.md").write_text("# Skill 2\nExtract field2 from the document.")
 
         # Write models.py
-        (schema_dir / "models.py").write_text('''
+        (schema_dir / "models.py").write_text("""
 from pydantic import BaseModel
 from typing import Optional
 
 class TestOutput(BaseModel):
     field1: Optional[str] = None
     field2: Optional[str] = None
-''')
+""")
 
         yield skills_path
 
@@ -106,6 +106,7 @@ def app_client(temp_skills_dir: Path) -> Generator[TestClient, None, None]:
     """Create test client with initialized registry."""
     # Reset singleton before tests
     from app.services.skill_registry import SkillRegistry
+
     SkillRegistry.reset()
 
     # Update settings
@@ -114,9 +115,11 @@ def app_client(temp_skills_dir: Path) -> Generator[TestClient, None, None]:
 
     # Clear settings cache
     from app.core.config import get_settings
+
     get_settings.cache_clear()
 
     from app.main import app
+
     with TestClient(app) as client:
         yield client
 

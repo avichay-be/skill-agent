@@ -36,7 +36,7 @@ class SkillNotFoundError(SkillAgentError):
 class RegistryNotInitializedError(SkillAgentError):
     """Registry not initialized."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "Skill registry not initialized. Call /admin/reload first.",
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -50,9 +50,7 @@ class ExecutionError(SkillAgentError):
         super().__init__(message, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def skill_agent_exception_handler(
-    request: Request, exc: SkillAgentError
-) -> JSONResponse:
+async def skill_agent_exception_handler(request: Request, exc: SkillAgentError) -> JSONResponse:
     """Handle SkillAgentError exceptions."""
     return JSONResponse(
         status_code=exc.status_code,

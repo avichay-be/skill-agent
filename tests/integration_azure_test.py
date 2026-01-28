@@ -34,7 +34,7 @@ class AzureIntegrationTests:
     """Integration tests for Azure deployment."""
 
     def __init__(self, base_url: str):
-        self.base_url = base_url.rstrip('/')
+        self.base_url = base_url.rstrip("/")
         self.client = httpx.Client(timeout=TIMEOUT)
         self.results = []
 
@@ -108,7 +108,9 @@ class AzureIntegrationTests:
             result.response_time = time.time() - start
 
             assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-            assert "text/html" in response.headers.get("content-type", ""), "Docs should return HTML"
+            assert "text/html" in response.headers.get("content-type", ""), (
+                "Docs should return HTML"
+            )
 
             result.passed = True
         except Exception as e:
@@ -144,7 +146,9 @@ class AzureIntegrationTests:
             response = self.client.get(f"{self.base_url}/api/v1/skills")
             result.response_time = time.time() - start
 
-            assert response.status_code == 401, f"Expected 401 (unauthorized), got {response.status_code}"
+            assert response.status_code == 401, (
+                f"Expected 401 (unauthorized), got {response.status_code}"
+            )
 
             result.passed = True
         except Exception as e:
@@ -160,7 +164,9 @@ class AzureIntegrationTests:
             response = self.client.get(f"{self.base_url}/api/v1/schemas")
             result.response_time = time.time() - start
 
-            assert response.status_code == 401, f"Expected 401 (unauthorized), got {response.status_code}"
+            assert response.status_code == 401, (
+                f"Expected 401 (unauthorized), got {response.status_code}"
+            )
 
             result.passed = True
         except Exception as e:
@@ -174,12 +180,13 @@ class AzureIntegrationTests:
         try:
             start = time.time()
             response = self.client.post(
-                f"{self.base_url}/api/v1/execute",
-                json={"document": "test", "schema_id": "test"}
+                f"{self.base_url}/api/v1/execute", json={"document": "test", "schema_id": "test"}
             )
             result.response_time = time.time() - start
 
-            assert response.status_code == 401, f"Expected 401 (unauthorized), got {response.status_code}"
+            assert response.status_code == 401, (
+                f"Expected 401 (unauthorized), got {response.status_code}"
+            )
 
             result.passed = True
         except Exception as e:
