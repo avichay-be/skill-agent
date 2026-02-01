@@ -1,7 +1,7 @@
 """Schemas API routes."""
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 

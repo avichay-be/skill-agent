@@ -1,7 +1,7 @@
 """Admin API routes for system management."""
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
