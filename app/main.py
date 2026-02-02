@@ -1,6 +1,7 @@
 """FastAPI application entry point."""
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler."""
     settings = get_settings()
     logger.info(f"Starting {settings.app_name}")
@@ -68,7 +69,7 @@ def create_app() -> FastAPI:
     )
 
     # Register exception handlers
-    app.add_exception_handler(SkillAgentError, skill_agent_exception_handler)
+    app.add_exception_handler(SkillAgentError, skill_agent_exception_handler)  # type: ignore[arg-type]
 
     # Register routers
     api_prefix = "/api/v1"
@@ -80,7 +81,7 @@ def create_app() -> FastAPI:
 
     # Root endpoint
     @app.get("/")
-    async def root():
+    async def root() -> dict[str, str]:
         return {
             "service": settings.app_name,
             "version": "0.1.0",
@@ -89,13 +90,13 @@ def create_app() -> FastAPI:
 
     # Health check endpoint
     @app.get("/health")
-    async def health():
+    async def health() -> dict[str, str]:
         """Health check endpoint for container orchestration."""
         return {"status": "healthy", "service": settings.app_name}
 
     # Generic error handler
     @app.exception_handler(Exception)
-    async def generic_exception_handler(request: Request, exc: Exception):
+    async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.exception(f"Unhandled exception: {exc}")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

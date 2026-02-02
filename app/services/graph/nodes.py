@@ -8,7 +8,7 @@ import asyncio
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict, List, cast, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from app.core.config import get_settings
 from app.models.schema import MergeStrategy
@@ -381,7 +381,7 @@ async def validate_results(state: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _run_validation_rule(rule, data: Dict[str, Any]) -> Dict[str, Any]:
+def _run_validation_rule(rule: Any, data: Dict[str, Any]) -> Dict[str, Any]:
     """Run a single validation rule."""
     try:
         if rule.type == "sum_check":

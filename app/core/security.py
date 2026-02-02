@@ -24,11 +24,16 @@ async def verify_api_key(
         settings: Application settings.
 
     Returns:
-        The validated API key.
+        The validated API key or empty string if authentication is disabled.
 
     Raises:
-        HTTPException: If API key is missing or invalid.
+        HTTPException: If API key is missing or invalid (when authentication is enabled).
     """
+    # Skip authentication if disabled
+    if not settings.require_api_key:
+        logger.debug("API key authentication is disabled - allowing anonymous access")
+        return ""
+
     if not api_key:
         logger.warning("API request without API key")
         raise HTTPException(

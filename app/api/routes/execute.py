@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Annotated, Any, Dict, Optional
+from typing import Annotated, Any, AsyncGenerator, Dict, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -81,9 +81,9 @@ async def execute_extraction_from_file(
     skill_name: Annotated[str, Form(description="Skill name to execute")],
     vendor: Annotated[Optional[str], Form(description="Override default LLM vendor")] = None,
     model: Annotated[Optional[str], Form(description="Override default model")] = None,
-    _api_key: ApiKeyDep = None,
-    registry: Annotated[SkillRegistry, Depends(get_registry)] = None,
-    executor: Annotated[SkillExecutor, Depends(get_executor)] = None,
+    _api_key: ApiKeyDep = None,  # type: ignore[assignment]
+    registry: Annotated[Optional[SkillRegistry], Depends(get_registry)] = None,
+    executor: Annotated[Optional[SkillExecutor], Depends(get_executor)] = None,
 ) -> ExecutionResponse:
     """Execute document extraction from an uploaded file.
 
@@ -123,6 +123,13 @@ async def execute_extraction_from_file(
             detail=f"Error reading file: {str(e)}",
         )
 
+    # Ensure registry is not None
+    if registry is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Registry not available",
+        )
+
     # Validate skill exists
     schema = registry.get_schema(skill_name)
     if not schema:
@@ -138,6 +145,13 @@ async def execute_extraction_from_file(
         vendor=vendor,
         model=model,
     )
+
+    # Ensure executor is not None
+    if executor is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Executor not available",
+        )
 
     # Execute
     logger.info(
@@ -166,7 +180,7 @@ async def execute_extraction_streaming(
     request: ExecutionRequest,
     _api_key: ApiKeyDep,
     registry: Annotated[SkillRegistry, Depends(get_registry)],
-):
+) -> StreamingResponse:
     """Execute extraction with real-time streaming updates (Server-Sent Events).
 
     This endpoint streams progress events as the LangGraph executes,
@@ -198,7 +212,7 @@ async def execute_extraction_streaming(
 
     logger.info(f"Starting streaming extraction with skill '{request.skill_name}'")
 
-    async def event_generator():
+    async def event_generator() -> AsyncGenerator[str, None]:
         """Generate Server-Sent Events from graph execution."""
         try:
             graph_executor = get_graph_executor()
@@ -216,7 +230,7 @@ async def execute_extraction_streaming(
 async def resume_execution(
     execution_id: str,
     feedback: Optional[Dict[str, Any]] = None,
-    _api_key: ApiKeyDep = None,
+    _api_key: ApiKeyDep = None,  # type: ignore[assignment]
 ) -> ExecutionResponse:
     """Resume a paused execution with optional human feedback.
 

@@ -5,7 +5,7 @@ import logging
 import sys
 from pathlib import Path
 from threading import Lock
-from typing import Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from pydantic import BaseModel
 
@@ -30,13 +30,15 @@ class SkillRegistry:
     _instance: Optional["SkillRegistry"] = None
     _lock = Lock()
 
+    _initialized: bool = False
+
     def __new__(cls, *args: Any, **kwargs: Any) -> "SkillRegistry":
         """Singleton pattern for registry."""
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
                     cls._instance = super().__new__(cls)
-                    cls._instance._initialized: bool = False
+                    cls._instance._initialized = False
         return cls._instance
 
     def __init__(self, settings: Optional[Settings] = None):
