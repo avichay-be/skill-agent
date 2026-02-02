@@ -211,18 +211,17 @@ class TestExecutionModels:
         """Test ExecutionRequest model."""
         request = ExecutionRequest(
             document="Test document content",
-            schema_id="test_schema",
+            skill_name="test_schema",
         )
 
         assert request.document == "Test document content"
         assert request.vendor is None
-        assert request.skill_ids is None
 
     def test_execution_response(self):
         """Test ExecutionResponse model."""
         response = ExecutionResponse(
             status=ExecutionStatus.COMPLETED,
-            schema_id="test",
+            skill_name="test",
             data={"field": "value"},
         )
 

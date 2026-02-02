@@ -381,7 +381,7 @@ async def validate_results(state: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _run_validation_rule(rule, data: Dict[str, Any]) -> Dict[str, Any]:
+def _run_validation_rule(rule: Any, data: Dict[str, Any]) -> Dict[str, Any]:
     """Run a single validation rule."""
     try:
         if rule.type == "sum_check":

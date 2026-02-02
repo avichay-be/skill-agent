@@ -35,7 +35,7 @@ has become a leader in artificial intelligence solutions.
 """
 
 
-async def test_executor(executor, executor_name: str, request: ExecutionRequest) -> Dict[str, Any]:
+async def run_executor_test(executor, executor_name: str, request: ExecutionRequest) -> Dict[str, Any]:
     """Test a single executor and return metrics."""
     print(f"\n{'=' * 60}")
     print(f"Testing: {executor_name}")
@@ -149,14 +149,14 @@ async def main():
     results = []
 
     # Test 1: Legacy Executor
-    result_legacy = await test_executor(legacy_executor, "Legacy Executor", request)
+    result_legacy = await run_executor_test(legacy_executor, "Legacy Executor", request)
     results.append(result_legacy)
 
     # Small delay between tests
     await asyncio.sleep(1)
 
     # Test 2: LangGraph Executor
-    result_graph = await test_executor(graph_executor, "LangGraph Executor", request)
+    result_graph = await run_executor_test(graph_executor, "LangGraph Executor", request)
     results.append(result_graph)
 
     # Comparison

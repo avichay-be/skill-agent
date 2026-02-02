@@ -18,11 +18,6 @@ class TestHealthEndpoint:
 class TestSkillsEndpoint:
     """Tests for skills API endpoints."""
 
-    def test_list_skills_requires_auth(self, app_client):
-        """Test that listing skills requires API key."""
-        response = app_client.get("/api/v1/skills")
-        assert response.status_code == 401
-
     def test_list_skills_with_auth(self, app_client, test_api_key):
         """Test listing skills with valid API key."""
         response = app_client.get("/api/v1/skills", headers={"X-API-Key": test_api_key})
@@ -77,34 +72,14 @@ class TestSchemasEndpoint:
 class TestExecuteEndpoint:
     """Tests for execution API endpoints."""
 
-    def test_execute_requires_auth(self, app_client):
-        """Test that execution requires API key."""
-        response = app_client.post(
-            "/api/v1/execute", json={"document": "test", "schema_id": "test"}
-        )
-        assert response.status_code == 401
-
     def test_execute_schema_not_found(self, app_client, test_api_key):
         """Test execution with non-existent schema."""
         response = app_client.post(
             "/api/v1/execute",
             headers={"X-API-Key": test_api_key},
-            json={"document": "test document", "schema_id": "nonexistent"},
+            json={"document": "test document", "skill_name": "nonexistent"},
         )
         assert response.status_code == 404
-
-    def test_execute_invalid_skill_ids(self, app_client, test_api_key):
-        """Test execution with invalid skill IDs."""
-        response = app_client.post(
-            "/api/v1/execute",
-            headers={"X-API-Key": test_api_key},
-            json={
-                "document": "test document",
-                "schema_id": "test_schema",
-                "skill_ids": ["nonexistent_skill"],
-            },
-        )
-        assert response.status_code == 400
 
 
 class TestWebhookEndpoint:

@@ -5,6 +5,7 @@ This replaces the original SkillExecutor with LangGraph orchestration.
 """
 
 import logging
+from datetime import datetime
 from typing import Any, AsyncIterator, Dict, Optional
 from uuid import uuid4
 
@@ -34,7 +35,7 @@ class GraphExecutor:
     - Conditional branching and loops
     """
 
-    def __init__(self, settings=None):
+    def __init__(self, settings: Any = None) -> None:
         self.settings = settings or get_settings()
 
         # Create the compiled graph
@@ -42,7 +43,7 @@ class GraphExecutor:
             checkpointer_type="sqlite", checkpoint_db_path="./data/checkpoints.db"
         )
 
-    async def execute(self, request) -> "ExecutionResponse":
+    async def execute(self, request: ExecutionRequest) -> "ExecutionResponse":
         """Execute extraction using LangGraph.
 
         This is the main entry point that replaces SkillExecutor.execute().
@@ -66,6 +67,9 @@ class GraphExecutor:
             execution_id=execution_id,
             vendor=request.vendor,
             model=request.model,
+            validation_result=None,
+            human_feedback=None,
+            next_action=None,
         )
 
         try:
@@ -106,6 +110,9 @@ class GraphExecutor:
             execution_id=execution_id,
             vendor=request.vendor,
             model=request.model,
+            validation_result=None,
+            human_feedback=None,
+            next_action=None,
         )
 
         config = {"configurable": {"thread_id": execution_id}}
@@ -184,8 +191,16 @@ class GraphExecutor:
             status = ExecutionStatus.FAILED
 
         # Build metadata
-        started_at = state.get("started_at")
-        completed_at = state.get("completed_at")
+        started_at_raw = state.get("started_at")
+        completed_at_raw = state.get("completed_at")
+
+        # Ensure datetime types
+        started_at: datetime = (
+            started_at_raw if isinstance(started_at_raw, datetime) else datetime.utcnow()
+        )
+        completed_at: Optional[datetime] = (
+            completed_at_raw if isinstance(completed_at_raw, datetime) else None
+        )
 
         token_usage_dict = state.get("token_usage", {})
         token_usage = TokenUsage(
@@ -200,8 +215,11 @@ class GraphExecutor:
 
         skill_results = state.get("skill_results", [])
 
+        # Ensure execution_id is a string
+        execution_id_val: str = state.get("execution_id") or str(uuid4())
+
         metadata = ExecutionMetadata(
-            execution_id=state.get("execution_id"),
+            execution_id=execution_id_val,
             started_at=started_at,
             completed_at=completed_at,
             token_usage=token_usage,
@@ -234,7 +252,7 @@ class GraphExecutor:
         )
 
 
-def get_graph_executor() -> GraphExecutor:
+def get_graph_executor() -> "GraphExecutor":
     """Get graph executor instance for dependency injection.
 
     Returns:

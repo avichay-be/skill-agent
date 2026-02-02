@@ -109,7 +109,7 @@ class AnthropicClient(BaseLLMClient):
             # Extract text from response content
             content_block = response.content[0]
             if hasattr(content_block, "text"):
-                text = content_block.text  # type: ignore[union-attr]
+                text = content_block.text
             else:
                 raise LLMClientError(f"Unexpected content block type: {type(content_block)}")
             usage = TokenUsage(
@@ -216,7 +216,7 @@ class GeminiClient(BaseLLMClient):
     def __init__(self, api_key: str, model: str):
         self.model = model
         try:
-            import google.generativeai as genai  # type: ignore[import-not-found]
+            import google.generativeai as genai
 
             genai.configure(api_key=api_key)  # type: ignore[attr-defined]
             self.genai = genai

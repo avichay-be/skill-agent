@@ -4,7 +4,7 @@ LangGraph builder for skill execution workflow.
 This module constructs the StateGraph that orchestrates skill execution.
 """
 
-from typing import Literal
+from typing import Any, Literal
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -17,7 +17,7 @@ from app.services.graph.state import SkillGraphState
 def create_skill_execution_graph(
     checkpointer_type: Literal["memory", "sqlite"] = "sqlite",
     checkpoint_db_path: str = "./data/checkpoints.db",
-) -> StateGraph:
+) -> Any:
     """Create the main skill execution StateGraph.
 
     Args:
@@ -32,13 +32,13 @@ def create_skill_execution_graph(
     workflow = StateGraph(SkillGraphState)
 
     # ===== Add all nodes =====
-    workflow.add_node("initialize", nodes.initialize_execution)
-    workflow.add_node("execute_group", nodes.execute_skill_group)
-    workflow.add_node("merge_results", nodes.merge_skill_results)
-    workflow.add_node("validate", nodes.validate_results)
-    workflow.add_node("human_review", nodes.human_review_node)
-    workflow.add_node("router", nodes.route_next_action)
-    workflow.add_node("checkpoint", nodes.save_checkpoint)
+    workflow.add_node("initialize", nodes.initialize_execution)  # type: ignore[type-var]
+    workflow.add_node("execute_group", nodes.execute_skill_group)  # type: ignore[type-var]
+    workflow.add_node("merge_results", nodes.merge_skill_results)  # type: ignore[type-var]
+    workflow.add_node("validate", nodes.validate_results)  # type: ignore[type-var]
+    workflow.add_node("human_review", nodes.human_review_node)  # type: ignore[type-var]
+    workflow.add_node("router", nodes.route_next_action)  # type: ignore[type-var]
+    workflow.add_node("checkpoint", nodes.save_checkpoint)  # type: ignore[type-var]
 
     # ===== Define edges (execution flow) =====
 
@@ -78,6 +78,7 @@ def create_skill_execution_graph(
     workflow.add_edge("human_review", "validate")
 
     # ===== Configure checkpointer =====
+    checkpointer: Any
     if checkpointer_type == "memory":
         checkpointer = MemorySaver()
     elif checkpointer_type == "sqlite":
@@ -126,7 +127,7 @@ def _route_decision(state: SkillGraphState) -> str:
 
 def create_dynamic_selection_graph(
     checkpointer_type: Literal["memory", "sqlite"] = "memory",
-) -> StateGraph:
+) -> Any:
     """Create a graph variant with dynamic skill selection.
 
     This graph first analyzes the document to determine which
@@ -140,12 +141,12 @@ def create_dynamic_selection_graph(
     """
     workflow = StateGraph(SkillGraphState)
 
-    workflow.add_node("initialize", nodes.initialize_execution)
-    workflow.add_node("analyze", nodes.analyze_document_and_select_skills)
-    workflow.add_node("execute_group", nodes.execute_skill_group)
-    workflow.add_node("merge_results", nodes.merge_skill_results)
-    workflow.add_node("validate", nodes.validate_results)
-    workflow.add_node("router", nodes.route_next_action)
+    workflow.add_node("initialize", nodes.initialize_execution)  # type: ignore[type-var]
+    workflow.add_node("analyze", nodes.analyze_document_and_select_skills)  # type: ignore[type-var]
+    workflow.add_node("execute_group", nodes.execute_skill_group)  # type: ignore[type-var]
+    workflow.add_node("merge_results", nodes.merge_skill_results)  # type: ignore[type-var]
+    workflow.add_node("validate", nodes.validate_results)  # type: ignore[type-var]
+    workflow.add_node("router", nodes.route_next_action)  # type: ignore[type-var]
 
     workflow.set_entry_point("initialize")
     workflow.add_edge("initialize", "analyze")
@@ -162,6 +163,7 @@ def create_dynamic_selection_graph(
     workflow.add_edge("validate", "router")
 
     # Configure checkpointer
+    checkpointer: Any
     if checkpointer_type == "memory":
         checkpointer = MemorySaver()
     else:

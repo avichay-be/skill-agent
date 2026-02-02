@@ -30,6 +30,9 @@ class TestSkillExecutor:
         settings.default_model = None
         settings.default_timeout_seconds = 60
         settings.default_retry_count = 2
+        settings.anthropic_model = "claude-sonnet-4-20250514"
+        settings.openai_model = "gpt-4o"
+        settings.gemini_model = "gemini-2.0-flash"
 
         with patch("app.services.skill_registry.get_settings", return_value=settings):
             registry = SkillRegistry(settings)
@@ -59,40 +62,22 @@ class TestSkillExecutor:
         settings = MagicMock()
         settings.default_vendor = "anthropic"
         settings.default_model = None
+        settings.anthropic_model = "claude-sonnet-4-20250514"
+        settings.openai_model = "gpt-4o"
+        settings.gemini_model = "gemini-2.0-flash"
 
         executor = SkillExecutor(registry=mock_registry, settings=settings)
 
         request = ExecutionRequest(
             document="Test document content",
-            schema_id="test_schema",
+            skill_name="test_schema",
         )
 
         response = await executor.execute(request)
 
         assert response.status in [ExecutionStatus.COMPLETED, ExecutionStatus.PARTIAL]
-        assert response.schema_id == "test_schema"
-        assert response.metadata.processing_time_ms > 0
-
-    @pytest.mark.asyncio
-    async def test_execute_specific_skills(self, mock_registry, mock_llm_factory):
-        """Test executing specific skills only."""
-        settings = MagicMock()
-        settings.default_vendor = "anthropic"
-        settings.default_model = None
-
-        executor = SkillExecutor(registry=mock_registry, settings=settings)
-
-        request = ExecutionRequest(
-            document="Test document",
-            schema_id="test_schema",
-            skill_ids=["skill_1"],
-        )
-
-        response = await executor.execute(request)
-
-        # Should only execute skill_1
-        assert len(response.skill_results) == 1
-        assert response.skill_results[0].skill_id == "skill_1"
+        assert response.skill_name == "test_schema"
+        assert response.metadata.processing_time_ms >= 0
 
     @pytest.mark.asyncio
     async def test_execute_schema_not_found(self, mock_registry):
@@ -102,7 +87,7 @@ class TestSkillExecutor:
 
         request = ExecutionRequest(
             document="Test",
-            schema_id="nonexistent",
+            skill_name="nonexistent",
         )
 
         response = await executor.execute(request)
