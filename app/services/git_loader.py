@@ -62,15 +62,32 @@ class GitLoader:
 
         Returns:
             Current commit SHA after operation.
-        """
-        # Use local skills path if configured and no remote URL
-        if not self.settings.github_repo_url and self.settings.local_skills_path:
-            self._local_path = Path(self.settings.local_skills_path)
-            logger.info(f"Using local skills path: {self._local_path}")
-            return "local"
 
+        Behavior based on environment:
+            - local: Uses local_skills_path (defaults to ./skills-library)
+            - test/production: Uses github_repo_url
+        """
+        # In local environment, prefer local skills path
+        if self.settings.environment == "local":
+            local_path = self.settings.local_skills_path or "./skills-library"
+            self._local_path = Path(local_path)
+            if self._local_path.exists():
+                logger.info(f"Using local skills path: {self._local_path}")
+                return "local"
+            else:
+                logger.warning(f"Local skills path not found: {self._local_path}")
+                # Fall through to GitHub if local path doesn't exist
+
+        # In test/production, or if local path doesn't exist, use GitHub
         if not self.settings.github_repo_url:
-            raise GitLoaderError("No GitHub repo URL or local skills path configured")
+            # Fallback to local path if no GitHub URL configured
+            if self.settings.local_skills_path:
+                self._local_path = Path(self.settings.local_skills_path)
+                logger.info(f"Using local skills path (fallback): {self._local_path}")
+                return "local"
+            raise GitLoaderError(
+                "No GitHub repo URL configured. Set GITHUB_REPO_URL or use ENVIRONMENT=local"
+            )
 
         if target_path:
             self._local_path = Path(target_path)
