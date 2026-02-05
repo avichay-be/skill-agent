@@ -35,7 +35,9 @@ has become a leader in artificial intelligence solutions.
 """
 
 
-async def run_executor_test(executor, executor_name: str, request: ExecutionRequest) -> Dict[str, Any]:
+async def run_executor_test(
+    executor, executor_name: str, request: ExecutionRequest
+) -> Dict[str, Any]:
     """Test a single executor and return metrics."""
     print(f"\n{'=' * 60}")
     print(f"Testing: {executor_name}")
