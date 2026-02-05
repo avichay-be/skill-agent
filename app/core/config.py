@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # App settings
     app_name: str = "Skill Agent"
     debug: bool = False
+    environment: Literal["local", "test", "production"] = "local"
 
     # Authentication settings
     require_api_key: bool = False  # Set to True to enable API key authentication
