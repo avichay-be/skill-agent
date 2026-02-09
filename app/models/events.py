@@ -1,6 +1,6 @@
 """Event-related Pydantic models."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -34,6 +34,15 @@ class EventType(str, Enum):
     GIT_SYNC_COMPLETED = "git.sync.completed"
     GIT_SYNC_FAILED = "git.sync.failed"
 
+    # CI/CD events
+    CICD_PIPELINE_STARTED = "cicd.pipeline.started"
+    CICD_ANALYSIS_COMPLETED = "cicd.analysis.completed"
+    CICD_PIPELINE_GENERATED = "cicd.pipeline.generated"
+    CICD_VALIDATION_COMPLETED = "cicd.validation.completed"
+    CICD_REVIEW_REQUESTED = "cicd.review.requested"
+    CICD_PR_CREATED = "cicd.pr.created"
+    CICD_PIPELINE_FAILED = "cicd.pipeline.failed"
+
 
 class SkillEvent(BaseModel):
     """Event emitted when skills or schemas change."""
@@ -43,7 +52,7 @@ class SkillEvent(BaseModel):
     schema_id: Optional[str] = Field(default=None, description="Affected schema")
     skill_id: Optional[str] = Field(default=None, description="Affected skill")
     git_commit: Optional[str] = Field(default=None, description="Git commit SHA")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     payload: Dict[str, Any] = Field(default_factory=dict, description="Additional data")
 
 

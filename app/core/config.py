@@ -77,6 +77,45 @@ class Settings(BaseSettings):
     webhook_secret: Optional[str] = None  # For verifying incoming webhooks
     outbound_webhooks: List[str] = Field(default_factory=list)
 
+    # CORS settings
+    allowed_origins_str: str = Field(
+        default="http://localhost:3000,http://localhost:8000",
+        alias="allowed_origins",
+    )
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def allowed_origins(self) -> List[str]:
+        """Parse comma-separated allowed origins."""
+        return [o.strip() for o in self.allowed_origins_str.split(",") if o.strip()]
+
+    # CI/CD subagent settings
+    enable_cicd_subagent: bool = False  # Feature flag
+    cicd_llm_vendor: str = "gemini"  # LLM vendor for CI/CD analysis
+    cicd_llm_model: Optional[str] = None  # Model override (uses vendor default if None)
+    cicd_watched_branches: List[str] = Field(default_factory=lambda: ["main"])  # Branches to watch
+    cicd_auto_approve: bool = False  # Skip human review (not recommended)
+
+    # File upload validation settings
+    max_upload_size_mb: int = 10  # Max file upload size in MB
+    allowed_file_extensions_str: str = Field(
+        default=".txt,.md,.json,.csv,.xml,.html,.pdf",
+        alias="allowed_file_extensions",
+    )
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def allowed_file_extensions(self) -> List[str]:
+        """Parse comma-separated allowed file extensions."""
+        return [
+            ext.strip().lower()
+            for ext in self.allowed_file_extensions_str.split(",")
+            if ext.strip()
+        ]
+
+    # Request timeout settings
+    request_timeout_seconds: int = 300  # 5 minutes default
+
 
 @lru_cache
 def get_settings() -> Settings:

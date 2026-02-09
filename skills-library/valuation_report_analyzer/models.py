@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # ============== Project Info Models ==============
 
@@ -66,13 +66,12 @@ class ReportInfo(BaseModel):
 class ProjectInfo(BaseModel):
     """Complete project information."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     identification: ProjectIdentification
     location: ProjectLocation
     scale: ProjectScale
     report_info: Optional[ReportInfo] = Field(None, alias="reportInfo")
-
-    class Config:
-        populate_by_name = True
 
 
 # ============== Financial Models ==============
@@ -131,13 +130,12 @@ class PerUnitData(BaseModel):
 class FinancialSummary(BaseModel):
     """Financial summary data."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     revenue: RevenueData
     expenses: ExpenseData
     profit: ProfitData
     per_unit: Optional[PerUnitData] = Field(None, alias="perUnit")
-
-    class Config:
-        populate_by_name = True
 
 
 class ExpenseItem(BaseModel):
@@ -194,15 +192,14 @@ class IndirectCosts(BaseModel):
 class ExpenseBreakdown(BaseModel):
     """Complete expense breakdown."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     acquisition: Optional[AcquisitionCosts] = None
     construction: Optional[ConstructionCosts] = None
     indirect: Optional[IndirectCosts] = None
     total_expenses: Optional[int] = Field(
         None, alias="totalExpenses", description="Total of all expenses"
     )
-
-    class Config:
-        populate_by_name = True
 
 
 # ============== Risk Models ==============
@@ -249,12 +246,11 @@ class ConditionalFlags(BaseModel):
 class RiskAssessment(BaseModel):
     """Complete risk assessment."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     identified: List[RiskItem] = Field(default_factory=list, description="Identified risks")
     overall_assessment: Optional[OverallAssessment] = Field(None, alias="overallAssessment")
     conditional_flags: Optional[ConditionalFlags] = Field(None, alias="conditionalFlags")
-
-    class Config:
-        populate_by_name = True
 
 
 # ============== Main Result Model ==============
@@ -262,6 +258,8 @@ class RiskAssessment(BaseModel):
 
 class ValuationReportResult(BaseModel):
     """Complete valuation report extraction result."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     project_info: ProjectInfo = Field(
         ..., alias="projectInfo", description="Project identification and info"
@@ -273,6 +271,3 @@ class ValuationReportResult(BaseModel):
         None, alias="expenseBreakdown", description="Expense breakdown"
     )
     risks: Optional[RiskAssessment] = Field(None, description="Risk assessment")
-
-    class Config:
-        populate_by_name = True

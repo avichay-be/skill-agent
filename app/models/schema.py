@@ -1,10 +1,10 @@
 """Schema-related Pydantic models."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Type
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MergeStrategy(str, Enum):
@@ -69,10 +69,10 @@ class LoadedSchema(BaseModel):
         default=None, description="Dynamically loaded Pydantic output model"
     )
     git_commit: str = Field(..., description="Git commit SHA")
-    loaded_at: datetime = Field(default_factory=datetime.utcnow)
+    loaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     source_path: str = Field(..., description="Path to schema directory")
 
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def get_skills_by_group(self) -> Dict[int, List[Skill]]:
         """Group skills by parallel_group for ordered execution."""
@@ -106,4 +106,4 @@ class SchemaDetailResponse(BaseModel):
     git_commit: str
     loaded_at: datetime
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)

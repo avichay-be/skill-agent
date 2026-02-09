@@ -5,7 +5,7 @@ This replaces the original SkillExecutor with LangGraph orchestration.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Dict, Optional
 from uuid import uuid4
 
@@ -196,7 +196,7 @@ class GraphExecutor:
 
         # Ensure datetime types
         started_at: datetime = (
-            started_at_raw if isinstance(started_at_raw, datetime) else datetime.utcnow()
+            started_at_raw if isinstance(started_at_raw, datetime) else datetime.now(timezone.utc)
         )
         completed_at: Optional[datetime] = (
             completed_at_raw if isinstance(completed_at_raw, datetime) else None

@@ -4,11 +4,11 @@ LangGraph state schema for skill execution.
 This module defines the state that flows through the LangGraph execution graph.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from operator import add
 from typing import Annotated, Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.execution import TokenUsage, ValidationResult
 from app.models.skill import SkillExecutionResult
@@ -20,6 +20,8 @@ class SkillGraphState(BaseModel):
     This state is passed between nodes and accumulates results.
     Uses Annotated types with reducers for proper state merging.
     """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     # ===== Input Data =====
     document: str = Field(..., description="Original document content")
@@ -57,7 +59,7 @@ class SkillGraphState(BaseModel):
     token_usage: TokenUsage = Field(
         default_factory=TokenUsage, description="Cumulative token usage"
     )
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
 
     # ===== Control Flow =====
@@ -90,6 +92,3 @@ class SkillGraphState(BaseModel):
     progress_events: Annotated[List[Dict[str, Any]], add] = Field(
         default_factory=list, description="Progress events for streaming"
     )
-
-    class Config:
-        arbitrary_types_allowed = True

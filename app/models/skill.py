@@ -1,6 +1,6 @@
 """Skill-related Pydantic models."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -43,7 +43,7 @@ class Skill(BaseModel):
     schema_id: str = Field(..., description="Parent schema identifier")
     version: str = Field(..., description="Git commit SHA or version")
     file_path: str = Field(..., description="Path to prompt file")
-    loaded_at: datetime = Field(default_factory=datetime.utcnow)
+    loaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     def get_effective_vendor(self, default: str) -> str:
         """Get vendor, falling back to default."""

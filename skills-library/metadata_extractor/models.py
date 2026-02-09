@@ -2,11 +2,13 @@
 
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MetadataResult(BaseModel):
     """Extracted document metadata."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     title: str = Field(..., description="Document title or main heading")
     author: Optional[str] = Field(None, description="Document author")
@@ -17,6 +19,3 @@ class MetadataResult(BaseModel):
         description="Type of document (report, article, memo, contract, etc.)",
     )
     content: Optional[str] = Field(None, description="Full text content of the document")
-
-    class Config:
-        populate_by_name = True
