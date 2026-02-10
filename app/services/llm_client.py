@@ -4,6 +4,7 @@ import json
 import logging
 import re
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from typing import Any, Dict, Optional, Tuple
 
 from app.core.config import Settings, get_settings
@@ -274,9 +275,10 @@ class GeminiClient(BaseLLMClient):
 
 
 class LLMClientFactory:
-    """Factory for creating LLM clients."""
+    """Factory for creating LLM clients with LRU eviction."""
 
-    _clients: Dict[str, BaseLLMClient] = {}
+    _clients: OrderedDict[str, BaseLLMClient] = OrderedDict()
+    _max_cache_size: int = 10
 
     @classmethod
     def get_client(
@@ -322,9 +324,17 @@ class LLMClientFactory:
         # Cache key
         key = f"{vendor}:{model}"
 
-        if key not in cls._clients:
-            cls._clients[key] = client_cls(api_key, model)
-            logger.info(f"Created LLM client: {vendor}/{model}")
+        if key in cls._clients:
+            cls._clients.move_to_end(key)
+            return cls._clients[key]
+
+        # Evict least-recently-used entry if at capacity
+        if len(cls._clients) >= cls._max_cache_size:
+            evicted_key, _ = cls._clients.popitem(last=False)
+            logger.info(f"Evicted LLM client from cache: {evicted_key}")
+
+        cls._clients[key] = client_cls(api_key, model)
+        logger.info(f"Created LLM client: {vendor}/{model}")
 
         return cls._clients[key]
 
