@@ -111,6 +111,8 @@ jobs:
               OPENAI_API_KEY=secretref:openai-api-key \
               GOOGLE_API_KEY=secretref:google-api-key \
               GITHUB_REPO_URL=${{ secrets.GITHUB_REPO_URL }} \
+              ENVIRONMENT=production \
+              SKILLS_BASE_PATH=skills-library \
               APP_NAME="Skill Agent" \
               LOG_LEVEL=INFO
 

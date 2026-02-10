@@ -31,6 +31,7 @@ class GitLoader:
         self._repo: Optional[Repo] = None
         self._local_path: Optional[Path] = None
         self._is_temp_dir = False
+        self._is_direct_skills_path = False
 
     @property
     def local_path(self) -> Optional[Path]:
@@ -72,6 +73,7 @@ class GitLoader:
             local_path = self.settings.local_skills_path or "./skills-library"
             self._local_path = Path(local_path)
             if self._local_path.exists():
+                self._is_direct_skills_path = True
                 logger.info(f"Using local skills path: {self._local_path}")
                 return "local"
             else:
@@ -83,6 +85,7 @@ class GitLoader:
             # Fallback to local path if no GitHub URL configured
             if self.settings.local_skills_path:
                 self._local_path = Path(self.settings.local_skills_path)
+                self._is_direct_skills_path = True
                 logger.info(f"Using local skills path (fallback): {self._local_path}")
                 return "local"
             raise GitLoaderError(
@@ -127,8 +130,11 @@ class GitLoader:
         if not self._local_path:
             raise GitLoaderError("Repository not cloned. Call clone_or_pull() first.")
 
-        # If skills_base_path is empty, use local_path directly
-        if self.settings.skills_base_path:
+        # When using a direct local skills path, it already points to the
+        # skills root — don't append skills_base_path again.
+        if self._is_direct_skills_path:
+            base = self._local_path
+        elif self.settings.skills_base_path:
             base = self._local_path / self.settings.skills_base_path
         else:
             base = self._local_path
