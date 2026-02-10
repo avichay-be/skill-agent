@@ -24,6 +24,12 @@ dependencies = [
     "google-generativeai>=0.4.0",
     "python-multipart>=0.0.6",
     "aiofiles>=23.2.1",
+    "slowapi>=0.1.9",
+    "pyyaml>=6.0",
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "langgraph-checkpoint-sqlite>=1.0.0",
+    "langsmith<0.2.0",
 ]
 
 [project.optional-dependencies]
@@ -61,3 +67,14 @@ indent-style = "space"
 [tool.mypy]
 python_version = "3.11"
 strict = true
+warn_unused_ignores = false
+
+[[tool.mypy.overrides]]
+module = [
+    "slowapi.*",
+    "langgraph.*",
+    "langgraph_checkpoint_sqlite.*",
+    "langchain_core.*",
+    "google.generativeai.*",
+]
+ignore_missing_imports = true

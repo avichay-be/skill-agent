@@ -7,7 +7,7 @@ Each node is a function that takes state and returns updated state.
 import asyncio
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, cast
 
 from app.core.config import get_settings
@@ -48,7 +48,7 @@ async def initialize_execution(state: Dict[str, Any]) -> Dict[str, Any]:
         "progress_events": [
             {
                 "type": "execution_started",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "total_skills": len(active_skills),
                 "groups": groups,
             }
@@ -134,7 +134,7 @@ async def execute_skill_group(state: Dict[str, Any]) -> Dict[str, Any]:
             {
                 "type": "group_completed",
                 "group": state["current_group"],
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "successful_results": len([r for r in skill_results if r.success]),
                 "total_results": len(skill_results),
             }
@@ -274,7 +274,7 @@ async def merge_skill_results(state: Dict[str, Any]) -> Dict[str, Any]:
         "progress_events": [
             {
                 "type": "merge_completed",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "fields": len(merged),
                 "strategy": strategy.value,
             }
@@ -372,7 +372,7 @@ async def validate_results(state: Dict[str, Any]) -> Dict[str, Any]:
         "progress_events": [
             {
                 "type": "validation_completed",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "status": status,
                 "errors": len(errors),
                 "warnings": len(warnings),
@@ -477,7 +477,7 @@ async def human_review_node(state: Dict[str, Any]) -> Dict[str, Any]:
         "progress_events": [
             {
                 "type": "human_review_requested",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "reason": "validation_failed",
                 "errors": state.get("validation_result", {}).get("errors", [])
                 if state.get("validation_result")
@@ -527,7 +527,11 @@ async def route_next_action(state: Dict[str, Any]) -> Dict[str, Any]:
             elif state.get("human_review_required", False):
                 return {"next_action": "human_review"}
 
-    return {"next_action": "complete", "status": "completed", "completed_at": datetime.utcnow()}
+    return {
+        "next_action": "complete",
+        "status": "completed",
+        "completed_at": datetime.now(timezone.utc),
+    }
 
 
 # ===== 7. Checkpoint Node =====
@@ -543,7 +547,7 @@ async def save_checkpoint(state: Dict[str, Any]) -> Dict[str, Any]:
         "progress_events": [
             {
                 "type": "checkpoint_saved",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "current_group": state.get("current_group"),
                 "completed_groups": state.get("completed_groups", []),
             }
@@ -599,7 +603,7 @@ Return a JSON object with:
         "progress_events": [
             {
                 "type": "skills_selected",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "selected": selected_skill_ids,
                 "reasoning": result.get("reasoning", ""),
             }

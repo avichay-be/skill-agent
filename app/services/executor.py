@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, cast
 
 from app.core.config import Settings, get_settings
@@ -72,7 +72,7 @@ class SkillExecutor:
             Execution response with results.
         """
         start_time = time.time()
-        metadata = ExecutionMetadata(started_at=datetime.utcnow())
+        metadata = ExecutionMetadata(started_at=datetime.now(timezone.utc))
 
         try:
             # Get schema by skill_name
@@ -123,7 +123,7 @@ class SkillExecutor:
 
             # Compute metadata
             end_time = time.time()
-            metadata.completed_at = datetime.utcnow()
+            metadata.completed_at = datetime.now(timezone.utc)
             metadata.processing_time_ms = int((end_time - start_time) * 1000)
             metadata.token_usage = self._sum_token_usage(skill_results)
             metadata.token_usage_by_skill = {
@@ -144,7 +144,7 @@ class SkillExecutor:
 
         except Exception as e:
             logger.exception(f"Execution failed: {e}")
-            metadata.completed_at = datetime.utcnow()
+            metadata.completed_at = datetime.now(timezone.utc)
             metadata.processing_time_ms = int((time.time() - start_time) * 1000)
 
             return ExecutionResponse(

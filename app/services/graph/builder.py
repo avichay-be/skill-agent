@@ -32,13 +32,13 @@ def create_skill_execution_graph(
     workflow = StateGraph(SkillGraphState)
 
     # ===== Add all nodes =====
-    workflow.add_node("initialize", nodes.initialize_execution)  # type: ignore[type-var]
-    workflow.add_node("execute_group", nodes.execute_skill_group)  # type: ignore[type-var]
-    workflow.add_node("merge_results", nodes.merge_skill_results)  # type: ignore[type-var]
-    workflow.add_node("validate", nodes.validate_results)  # type: ignore[type-var]
-    workflow.add_node("human_review", nodes.human_review_node)  # type: ignore[type-var]
-    workflow.add_node("router", nodes.route_next_action)  # type: ignore[type-var]
-    workflow.add_node("checkpoint", nodes.save_checkpoint)  # type: ignore[type-var]
+    workflow.add_node("initialize", nodes.initialize_execution)  # type: ignore[call-overload]
+    workflow.add_node("execute_group", nodes.execute_skill_group)  # type: ignore[call-overload]
+    workflow.add_node("merge_results", nodes.merge_skill_results)  # type: ignore[call-overload]
+    workflow.add_node("validate", nodes.validate_results)  # type: ignore[call-overload]
+    workflow.add_node("human_review", nodes.human_review_node)  # type: ignore[call-overload]
+    workflow.add_node("router", nodes.route_next_action)  # type: ignore[call-overload]
+    workflow.add_node("checkpoint", nodes.save_checkpoint)  # type: ignore[call-overload]
 
     # ===== Define edges (execution flow) =====
 
@@ -141,12 +141,12 @@ def create_dynamic_selection_graph(
     """
     workflow = StateGraph(SkillGraphState)
 
-    workflow.add_node("initialize", nodes.initialize_execution)  # type: ignore[type-var]
-    workflow.add_node("analyze", nodes.analyze_document_and_select_skills)  # type: ignore[type-var]
-    workflow.add_node("execute_group", nodes.execute_skill_group)  # type: ignore[type-var]
-    workflow.add_node("merge_results", nodes.merge_skill_results)  # type: ignore[type-var]
-    workflow.add_node("validate", nodes.validate_results)  # type: ignore[type-var]
-    workflow.add_node("router", nodes.route_next_action)  # type: ignore[type-var]
+    workflow.add_node("initialize", nodes.initialize_execution)  # type: ignore[call-overload]
+    workflow.add_node("analyze", nodes.analyze_document_and_select_skills)  # type: ignore[call-overload]
+    workflow.add_node("execute_group", nodes.execute_skill_group)  # type: ignore[call-overload]
+    workflow.add_node("merge_results", nodes.merge_skill_results)  # type: ignore[call-overload]
+    workflow.add_node("validate", nodes.validate_results)  # type: ignore[call-overload]
+    workflow.add_node("router", nodes.route_next_action)  # type: ignore[call-overload]
 
     workflow.set_entry_point("initialize")
     workflow.add_edge("initialize", "analyze")

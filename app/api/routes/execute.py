@@ -2,12 +2,14 @@
 
 import json
 import logging
+import os
 from typing import Annotated, Any, AsyncGenerator, Dict, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 
 from app.core.config import get_settings
+from app.core.rate_limiter import limiter
 from app.core.security import ApiKeyDep
 from app.models.execution import ExecutionRequest, ExecutionResponse, ExecutionStatus
 from app.services.executor import SkillExecutor, get_executor
@@ -20,8 +22,10 @@ router = APIRouter(prefix="/execute", tags=["execution"])
 
 
 @router.post("", response_model=ExecutionResponse)
+@limiter.limit("10/minute")  # type: ignore[misc]
 async def execute_extraction(
-    request: ExecutionRequest,
+    request: Request,
+    exec_request: ExecutionRequest,
     _api_key: ApiKeyDep,
     registry: Annotated[SkillRegistry, Depends(get_registry)],
 ) -> ExecutionResponse:
@@ -31,7 +35,7 @@ async def execute_extraction(
     otherwise falls back to the legacy SkillExecutor.
 
     Args:
-        request: Execution request with document and skill_name.
+        exec_request: Execution request with document and skill_name.
 
     Returns:
         Extraction results with metadata.
@@ -39,27 +43,27 @@ async def execute_extraction(
     settings = get_settings()
 
     # Validate skill exists
-    schema = registry.get_schema(request.skill_name)
+    schema = registry.get_schema(exec_request.skill_name)
     if not schema:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Skill '{request.skill_name}' not found",
+            detail=f"Skill '{exec_request.skill_name}' not found",
         )
 
     # Execute
     logger.info(
-        f"Starting extraction with skill '{request.skill_name}', "
-        f"document length: {len(request.document)} chars, "
+        f"Starting extraction with skill '{exec_request.skill_name}', "
+        f"document length: {len(exec_request.document)} chars, "
         f"using {'LangGraph' if settings.use_langgraph else 'Legacy Executor'}"
     )
 
     # Choose executor based on configuration
     if settings.use_langgraph:
         graph_executor = get_graph_executor()
-        response = await graph_executor.execute(request)
+        response = await graph_executor.execute(exec_request)
     else:
         legacy_executor = get_executor()
-        response = await legacy_executor.execute(request)
+        response = await legacy_executor.execute(exec_request)
 
     # Log result
     if response.status == ExecutionStatus.COMPLETED:
@@ -76,7 +80,9 @@ async def execute_extraction(
 
 
 @router.post("/file", response_model=ExecutionResponse)
+@limiter.limit("5/minute")  # type: ignore[misc]
 async def execute_extraction_from_file(
+    request: Request,
     file: Annotated[UploadFile, File(description="Document file to process")],
     skill_name: Annotated[str, Form(description="Skill name to execute")],
     vendor: Annotated[Optional[str], Form(description="Override default LLM vendor")] = None,
@@ -99,9 +105,37 @@ async def execute_extraction_from_file(
     Returns:
         Extraction results with metadata.
     """
-    # Read file content
+    settings = get_settings()
+
+    # Validate file type/extension BEFORE reading content
+    filename = file.filename or ""
+    _, file_ext = os.path.splitext(filename)
+    file_ext_lower = file_ext.lower()
+
+    if not file_ext_lower or file_ext_lower not in settings.allowed_file_extensions:
+        allowed = ", ".join(settings.allowed_file_extensions)
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=(
+                f"File type '{file_ext_lower or '(none)'}' is not supported. "
+                f"Allowed file extensions: {allowed}"
+            ),
+        )
+
+    # Validate file size BEFORE reading full content
+    # Read content to check size (FastAPI UploadFile requires reading to get size)
+    content_bytes = await file.read()
+    max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
+    if len(content_bytes) > max_size_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=(
+                f"File size exceeds the maximum allowed size of {settings.max_upload_size_mb} MB."
+            ),
+        )
+
+    # Decode file content
     try:
-        content_bytes = await file.read()
         document_text = content_bytes.decode("utf-8")
     except UnicodeDecodeError:
         # Try common encodings
@@ -139,7 +173,7 @@ async def execute_extraction_from_file(
         )
 
     # Create execution request
-    request = ExecutionRequest(
+    exec_request = ExecutionRequest(
         document=document_text,
         skill_name=skill_name,
         vendor=vendor,
@@ -159,7 +193,7 @@ async def execute_extraction_from_file(
         f"skill '{skill_name}', document length: {len(document_text)} chars"
     )
 
-    response = await executor.execute(request)
+    response = await executor.execute(exec_request)
 
     # Log result
     if response.status == ExecutionStatus.COMPLETED:
@@ -176,8 +210,10 @@ async def execute_extraction_from_file(
 
 
 @router.post("/stream")
+@limiter.limit("5/minute")  # type: ignore[misc]
 async def execute_extraction_streaming(
-    request: ExecutionRequest,
+    request: Request,
+    exec_request: ExecutionRequest,
     _api_key: ApiKeyDep,
     registry: Annotated[SkillRegistry, Depends(get_registry)],
 ) -> StreamingResponse:
@@ -189,7 +225,7 @@ async def execute_extraction_streaming(
     Note: Only available when use_langgraph is enabled.
 
     Args:
-        request: Execution request with document and skill_name.
+        exec_request: Execution request with document and skill_name.
 
     Returns:
         StreamingResponse with Server-Sent Events
@@ -203,20 +239,20 @@ async def execute_extraction_streaming(
         )
 
     # Validate skill exists
-    schema = registry.get_schema(request.skill_name)
+    schema = registry.get_schema(exec_request.skill_name)
     if not schema:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Skill '{request.skill_name}' not found",
+            detail=f"Skill '{exec_request.skill_name}' not found",
         )
 
-    logger.info(f"Starting streaming extraction with skill '{request.skill_name}'")
+    logger.info(f"Starting streaming extraction with skill '{exec_request.skill_name}'")
 
     async def event_generator() -> AsyncGenerator[str, None]:
         """Generate Server-Sent Events from graph execution."""
         try:
             graph_executor = get_graph_executor()
-            async for event in graph_executor.execute_streaming(request):
+            async for event in graph_executor.execute_streaming(exec_request):
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:
             logger.exception(f"Streaming failed: {e}")
@@ -227,7 +263,9 @@ async def execute_extraction_streaming(
 
 
 @router.post("/resume/{execution_id}", response_model=ExecutionResponse)
+@limiter.limit("10/minute")  # type: ignore[misc]
 async def resume_execution(
+    request: Request,
     execution_id: str,
     feedback: Optional[Dict[str, Any]] = None,
     _api_key: ApiKeyDep = None,  # type: ignore[assignment]
@@ -269,8 +307,10 @@ async def resume_execution(
 
 
 @router.post("/legacy", response_model=ExecutionResponse)
+@limiter.limit("10/minute")  # type: ignore[misc]
 async def execute_extraction_legacy(
-    request: ExecutionRequest,
+    request: Request,
+    exec_request: ExecutionRequest,
     _api_key: ApiKeyDep,
     registry: Annotated[SkillRegistry, Depends(get_registry)],
     executor: Annotated[SkillExecutor, Depends(get_executor)],
@@ -282,25 +322,25 @@ async def execute_extraction_legacy(
     or rollback scenarios.
 
     Args:
-        request: Execution request with document and skill_name.
+        exec_request: Execution request with document and skill_name.
 
     Returns:
         Extraction results with metadata.
     """
     # Validate skill exists
-    schema = registry.get_schema(request.skill_name)
+    schema = registry.get_schema(exec_request.skill_name)
     if not schema:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Skill '{request.skill_name}' not found",
+            detail=f"Skill '{exec_request.skill_name}' not found",
         )
 
     logger.info(
-        f"Starting LEGACY extraction with skill '{request.skill_name}', "
-        f"document length: {len(request.document)} chars"
+        f"Starting LEGACY extraction with skill '{exec_request.skill_name}', "
+        f"document length: {len(exec_request.document)} chars"
     )
 
-    response = await executor.execute(request)
+    response = await executor.execute(exec_request)
 
     # Log result
     if response.status == ExecutionStatus.COMPLETED:

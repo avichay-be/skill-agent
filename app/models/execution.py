@@ -1,6 +1,6 @@
 """Execution-related Pydantic models."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -54,7 +54,7 @@ class ExecutionMetadata(BaseModel):
     """Metadata about the extraction execution."""
 
     execution_id: str = Field(default_factory=lambda: str(uuid4()))
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = Field(default=None)
     processing_time_ms: Optional[int] = Field(default=None)
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
