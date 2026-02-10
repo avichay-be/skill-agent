@@ -67,6 +67,7 @@ indent-style = "space"
 [tool.mypy]
 python_version = "3.11"
 strict = true
+warn_unused_ignores = false
 
 [[tool.mypy.overrides]]
 module = [

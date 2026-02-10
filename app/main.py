@@ -87,7 +87,7 @@ def create_app() -> FastAPI:
     )
 
     # Add timeout middleware (must be added before other middleware)
-    app.add_middleware(TimeoutMiddleware, timeout_seconds=settings.request_timeout_seconds)
+    app.add_middleware(TimeoutMiddleware, timeout_seconds=settings.request_timeout_seconds)  # type: ignore[arg-type]
 
     # Add CORS middleware with environment-based origins
     app.add_middleware(
@@ -102,7 +102,7 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
 
     # Register exception handlers
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
     app.add_exception_handler(SkillAgentError, skill_agent_exception_handler)  # type: ignore[arg-type]
 
     # Register routers
