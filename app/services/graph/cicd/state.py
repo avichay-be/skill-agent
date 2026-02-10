@@ -44,9 +44,7 @@ class CICDGraphState(BaseModel):
     )
 
     # ===== Analysis =====
-    analysis: Optional[ChangeAnalysis] = Field(
-        None, description="LLM analysis of changes"
-    )
+    analysis: Optional[ChangeAnalysis] = Field(None, description="LLM analysis of changes")
 
     # ===== Generated Files =====
     generated_files: Annotated[List[PipelineFileUpdate], add] = Field(

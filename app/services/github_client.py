@@ -1,7 +1,7 @@
 """Async GitHub REST API client for CI/CD operations."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 
@@ -43,9 +43,7 @@ class GitHubClient:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=self._headers, timeout=30.0)
             if resp.status_code != 200:
-                raise GitHubClientError(
-                    f"Failed to get compare: {resp.status_code} {resp.text}"
-                )
+                raise GitHubClientError(f"Failed to get compare: {resp.status_code} {resp.text}")
             return resp.json()  # type: ignore[no-any-return]
 
     async def get_file_content(self, path: str, ref: str = "main") -> Optional[str]:
@@ -109,14 +107,10 @@ class GitHubClient:
         url = f"{GITHUB_API_BASE}/repos/{self.repo}/git/refs"
         payload = {"ref": f"refs/heads/{branch_name}", "sha": from_sha}
         async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                url, headers=self._headers, json=payload, timeout=30.0
-            )
+            resp = await client.post(url, headers=self._headers, json=payload, timeout=30.0)
             if resp.status_code not in (201, 422):
                 # 422 means ref already exists, which is acceptable
-                raise GitHubClientError(
-                    f"Failed to create branch: {resp.status_code} {resp.text}"
-                )
+                raise GitHubClientError(f"Failed to create branch: {resp.status_code} {resp.text}")
 
     async def create_or_update_file(
         self,
@@ -150,9 +144,7 @@ class GitHubClient:
             payload["sha"] = sha
 
         async with httpx.AsyncClient() as client:
-            resp = await client.put(
-                url, headers=self._headers, json=payload, timeout=30.0
-            )
+            resp = await client.put(url, headers=self._headers, json=payload, timeout=30.0)
             if resp.status_code not in (200, 201):
                 raise GitHubClientError(
                     f"Failed to create/update file {path}: {resp.status_code} {resp.text}"
@@ -207,11 +199,7 @@ class GitHubClient:
             "base": base,
         }
         async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                url, headers=self._headers, json=payload, timeout=30.0
-            )
+            resp = await client.post(url, headers=self._headers, json=payload, timeout=30.0)
             if resp.status_code != 201:
-                raise GitHubClientError(
-                    f"Failed to create PR: {resp.status_code} {resp.text}"
-                )
+                raise GitHubClientError(f"Failed to create PR: {resp.status_code} {resp.text}")
             return resp.json()  # type: ignore[no-any-return]
