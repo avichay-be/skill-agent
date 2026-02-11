@@ -65,18 +65,57 @@ class BaseLLMClient(ABC):
         pass
 
     def _extract_json_from_text(self, text: str) -> Dict[str, Any]:
-        """Extract JSON from text response, handling markdown code blocks."""
+        """Extract JSON from text response, handling code blocks and extra data."""
         # Try to find JSON in code blocks first
         json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
         if json_match:
             text = json_match.group(1)
 
-        # Clean up and parse
         text = text.strip()
+
+        # 1. Try direct parse
         try:
             return json.loads(text)  # type: ignore[no-any-return]
-        except json.JSONDecodeError as e:
-            raise LLMClientError(f"Failed to parse JSON response: {e}")
+        except json.JSONDecodeError:
+            pass
+
+        # 2. Find the largest top-level JSON object using brace matching
+        result = self._find_largest_json_object(text)
+        if result is not None:
+            return result
+
+        # 3. Last resort: find any substring between { and }
+        brace_match = re.search(r"\{[\s\S]*\}", text)
+        if brace_match:
+            try:
+                return json.loads(brace_match.group(0))  # type: ignore[no-any-return]
+            except json.JSONDecodeError:
+                pass
+
+        raise LLMClientError(
+            f"Failed to parse JSON response: no valid JSON found in {len(text)} chars"
+        )
+
+    @staticmethod
+    def _find_largest_json_object(text: str) -> Optional[Dict[str, Any]]:
+        """Find the largest valid JSON object in text by scanning for { and parsing."""
+        best: Optional[Dict[str, Any]] = None
+        best_len = 0
+
+        for i, ch in enumerate(text):
+            if ch != "{":
+                continue
+            # Try parsing from this position using raw_decode
+            try:
+                decoder = json.JSONDecoder()
+                obj, end = decoder.raw_decode(text, i)
+                if isinstance(obj, dict) and (end - i) > best_len:
+                    best = obj
+                    best_len = end - i
+            except json.JSONDecodeError:
+                continue
+
+        return best
 
 
 class AnthropicClient(BaseLLMClient):
