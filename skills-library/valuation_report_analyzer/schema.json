@@ -19,8 +19,8 @@
         "expenseBreakdown",
         "risks"
       ],
-      "vendor": "anthropic",
-      "model": "claude-sonnet-4-20250514",
+      "vendor": null,
+      "model": null,
       "temperature": 0.0
     }
   ],
