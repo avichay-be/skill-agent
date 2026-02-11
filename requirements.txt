@@ -21,15 +21,12 @@ langchain-core>=0.3.0
 langgraph-checkpoint-sqlite>=1.0.0
 langsmith<0.2.0  # Pin to avoid pydantic v1 conflicts
 
+# Rate limiting & middleware
+slowapi>=0.1.9
+
+# YAML parsing
+pyyaml>=6.0
+
 # File handling
 python-multipart>=0.0.6
 aiofiles>=23.2.1
-
-# Optional: Pydantic AI
-# pydantic-ai>=0.0.10
-
-# Development
-pytest>=7.4.0
-pytest-asyncio>=0.23.0
-pytest-cov>=4.1.0
-ruff>=0.1.0
