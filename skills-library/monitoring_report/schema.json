@@ -1,0 +1,179 @@
+{
+  "schema_id": "monitoring_report",
+  "version": "1.0.0",
+  "name": "דוח מעקב - Monitoring Report Extractor",
+  "description": "Extract structured data from Israeli real estate construction monitoring reports (דוחות מעקב) into JSON with full source citations. Handles bank-supervised construction project reports (תקן 17/19), Hebrew OCR, field mapping, surplus calculations, and validation scoring.",
+
+  "language_requirements": {
+    "input": "Hebrew (he) - דוחות מעקב",
+    "output_field_names": "English (camelCase)",
+    "output_values": "Hebrew - ALL text values in Hebrew",
+    "numbers": "Integer (NIS thousands unless noted)",
+    "critical_note": "All text values (names, locations, descriptions) MUST be in Hebrew. Only field names and technical enums in English."
+  },
+
+  "output_model": "models.MonitoringReportResult",
+
+  "skills": [
+    {
+      "id": "extract_header",
+      "name": "Extract Project Header & Details",
+      "description": "Extract project ID, developer, bank account, contractor, insurance, dates from Page 1 and Section 1",
+      "enabled": true,
+      "prompt_file": "prompts/extract_header.md",
+      "required": true,
+      "timeout_seconds": 45,
+      "retry_count": 2,
+      "output_fields": ["projectInfo"],
+      "parallel_group": 1,
+      "temperature": 0.0
+    },
+    {
+      "id": "extract_sales",
+      "name": "Extract Sales & Revenue Data",
+      "description": "Extract sales data, inventory, sales pace, breakeven from Section 7 and Page 3",
+      "enabled": true,
+      "prompt_file": "prompts/extract_sales.md",
+      "required": true,
+      "timeout_seconds": 45,
+      "retry_count": 2,
+      "output_fields": ["salesData"],
+      "parallel_group": 1,
+      "temperature": 0.0
+    },
+    {
+      "id": "extract_costs",
+      "name": "Extract Costs & Budget Data",
+      "description": "Extract budget, paid, remaining costs from Section 4, Appendix A, and Section 9.3",
+      "enabled": true,
+      "prompt_file": "prompts/extract_costs.md",
+      "required": true,
+      "timeout_seconds": 45,
+      "retry_count": 2,
+      "output_fields": ["costs"],
+      "parallel_group": 1,
+      "temperature": 0.0
+    },
+    {
+      "id": "extract_progress",
+      "name": "Extract Progress & Credit Data",
+      "description": "Extract physical/financial progress from Section 5, credit and guarantees from Section 9",
+      "enabled": true,
+      "prompt_file": "prompts/extract_progress.md",
+      "required": true,
+      "timeout_seconds": 45,
+      "retry_count": 2,
+      "output_fields": ["progress", "creditAndGuarantees"],
+      "parallel_group": 1,
+      "temperature": 0.0
+    },
+    {
+      "id": "extract_surplus",
+      "name": "Extract Surplus, Profitability & Validate",
+      "description": "Calculate surplus analysis, extraction formula, profitability, generate footnotes and validation score",
+      "enabled": true,
+      "prompt_file": "prompts/extract_surplus.md",
+      "required": true,
+      "timeout_seconds": 60,
+      "retry_count": 2,
+      "output_fields": ["surplusAnalysis", "notes", "footnotes", "validationScore"],
+      "parallel_group": 2,
+      "temperature": 0.0
+    }
+  ],
+
+  "post_processing": {
+    "merge_strategy": "merge_deep",
+    "conflict_resolution": "first_wins",
+    "priority_order": ["extract_header", "extract_sales", "extract_costs", "extract_progress", "extract_surplus"],
+
+    "validation_rules": [
+      {
+        "id": "required_header",
+        "name": "Report header required",
+        "type": "required",
+        "params": {"fields": ["projectInfo"]},
+        "severity": "error"
+      },
+      {
+        "id": "surplus_calculation",
+        "name": "Surplus formula check",
+        "type": "formula",
+        "params": {
+          "formula": "surplusProject == depositsBalance + receivableAmount + inventoryValue - totalRemaining - creditUtilized + vatBalance",
+          "tolerance": 0.02
+        },
+        "severity": "warning"
+      },
+      {
+        "id": "cost_sum_check",
+        "name": "Cost categories sum to total budget",
+        "type": "formula",
+        "params": {
+          "formula": "abs((landBudget + softCostsBudget + constructionBudget - totalBudget) / totalBudget) <= 0.02"
+        },
+        "severity": "warning"
+      },
+      {
+        "id": "inventory_units_check",
+        "name": "Inventory units = total - sold",
+        "type": "formula",
+        "params": {
+          "formula": "inventoryUnits == totalUnits - soldUnits"
+        },
+        "severity": "warning"
+      },
+      {
+        "id": "extraction_formula_check",
+        "name": "Extraction formula verification",
+        "type": "formula",
+        "params": {
+          "formula": "extractionTotal == depositsBalance * 1.00 + receivableAmount * 0.80 + inventoryValue * 0.50 - totalRemaining * 1.30",
+          "tolerance": 0.02
+        },
+        "severity": "warning"
+      },
+      {
+        "id": "hebrew_text_check",
+        "name": "Text values are in Hebrew",
+        "type": "custom",
+        "params": {
+          "check": "projectInfo.address contains Hebrew characters"
+        },
+        "severity": "error"
+      }
+    ],
+
+    "enrichment": {
+      "enabled": true,
+      "operations": [
+        {
+          "type": "calculate_derived_metrics",
+          "metrics": [
+            {"name": "soldPct", "formula": "salesData.soldUnits / projectInfo.totalUnits * 100"},
+            {"name": "inventoryPct", "formula": "salesData.inventoryUnits / projectInfo.totalUnits * 100"},
+            {"name": "creditUtilPct", "formula": "creditAndGuarantees.creditUtilized / creditAndGuarantees.creditLimit * 100"},
+            {"name": "guaranteeUtilPct", "formula": "creditAndGuarantees.guaranteeBalance / creditAndGuarantees.guaranteeLimit * 100"},
+            {"name": "totalPaidPct", "formula": "costs.totalPaid / costs.totalBudget * 100"},
+            {"name": "budgetDeviationPct", "formula": "(costs.totalBudget - costs.reportZeroBudget) / costs.reportZeroBudget * 100"}
+          ]
+        },
+        {
+          "type": "add_metadata",
+          "fields": [
+            {"name": "processedAt", "value": "current_timestamp"},
+            {"name": "schemaVersion", "value": "1.0.0"},
+            {"name": "sourceType", "value": "monitoring_report"}
+          ]
+        }
+      ]
+    }
+  },
+
+  "quality_thresholds": {
+    "minimum_required_fields": 0.7,
+    "minimum_confidence_score": 0.6,
+    "require_manual_review_below": 0.8,
+    "auto_approve_above": 0.9
+  }
+}
