@@ -1,0 +1,162 @@
+{
+  "schema_id": "zero_report",
+  "version": "1.0.0",
+  "name": "Zero-Stage Appraisal Report Extractor",
+  "description": "Extract structured JSON from Israeli zero-stage real estate appraisal reports (דו\"ח אפס / חוות דעת היתכנות). Handles multiple appraiser firm formats, Hebrew OCR artifacts, and multi-phase projects.",
+  "output_model": "models.DoachEfesResult",
+
+  "skills": [
+    {
+      "id": "extract_project_info",
+      "name": "Extract Project Info & Timeline",
+      "prompt_file": "prompts/extract_project_info.md",
+      "parallel_group": 1,
+      "timeout_seconds": 90,
+      "retry_count": 2,
+      "output_fields": ["projectInfo", "timeline", "neighborhoodInfo"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active"
+    },
+    {
+      "id": "extract_financials",
+      "name": "Extract Financial Data",
+      "prompt_file": "prompts/extract_financials.md",
+      "parallel_group": 1,
+      "timeout_seconds": 120,
+      "retry_count": 2,
+      "output_fields": [
+        "financialSummary",
+        "revenueByTrack",
+        "freeMarketUnitMix",
+        "expenseBreakdown",
+        "builtAreas",
+        "unitMixByFloor",
+        "breakEvenAnalysis",
+        "sensitivityAnalysis",
+        "salesStrategy",
+        "indices"
+      ],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active"
+    },
+    {
+      "id": "extract_legal",
+      "name": "Extract Legal & Planning",
+      "prompt_file": "prompts/extract_legal.md",
+      "parallel_group": 1,
+      "timeout_seconds": 90,
+      "retry_count": 2,
+      "output_fields": ["legalInfo", "planningInfo", "consultants"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active"
+    },
+    {
+      "id": "extract_risks_metadata",
+      "name": "Extract Risks & Metadata",
+      "prompt_file": "prompts/extract_risks_metadata.md",
+      "parallel_group": 1,
+      "timeout_seconds": 90,
+      "retry_count": 2,
+      "output_fields": ["risks", "assumptions", "marketComparables", "disclaimers", "metadata"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active"
+    },
+    {
+      "id": "validate",
+      "name": "Validate Extracted Data",
+      "prompt_file": "prompts/validate.md",
+      "parallel_group": 2,
+      "timeout_seconds": 60,
+      "retry_count": 2,
+      "output_fields": ["validationNotes"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active"
+    }
+  ],
+
+  "post_processing": {
+    "merge_strategy": "merge_deep",
+    "validation_rules": [
+      {
+        "id": "project_name_required",
+        "name": "Project name is required",
+        "type": "required",
+        "params": { "fields": ["projectInfo.name"] },
+        "severity": "error"
+      },
+      {
+        "id": "total_units_required",
+        "name": "Total units is required",
+        "type": "required",
+        "params": { "fields": ["projectInfo.totalUnits"] },
+        "severity": "error"
+      },
+      {
+        "id": "revenue_required",
+        "name": "Total revenue is required",
+        "type": "required",
+        "params": { "fields": ["financialSummary.totalRevenue"] },
+        "severity": "error"
+      },
+      {
+        "id": "expenses_required",
+        "name": "Total expenses is required",
+        "type": "required",
+        "params": { "fields": ["financialSummary.totalExpenses"] },
+        "severity": "error"
+      },
+      {
+        "id": "profit_required",
+        "name": "Profit is required",
+        "type": "required",
+        "params": { "fields": ["financialSummary.profit"] },
+        "severity": "error"
+      },
+      {
+        "id": "expense_total_required",
+        "name": "Expense breakdown total is required",
+        "type": "required",
+        "params": { "fields": ["expenseBreakdown.totalExpenses"] },
+        "severity": "error"
+      },
+      {
+        "id": "report_date_required",
+        "name": "Report date is required",
+        "type": "required",
+        "params": { "fields": ["projectInfo.reportDate"] },
+        "severity": "error"
+      },
+      {
+        "id": "profit_margin_range",
+        "name": "Profit margin within reasonable range",
+        "type": "range_check",
+        "params": { "field": "financialSummary.profitMarginRevenue", "min": -10, "max": 50 },
+        "severity": "warning"
+      },
+      {
+        "id": "equity_percent_range",
+        "name": "Equity percent within reasonable range",
+        "type": "range_check",
+        "params": { "field": "financialSummary.equityPercent", "min": 0, "max": 100 },
+        "severity": "warning"
+      },
+      {
+        "id": "risks_present",
+        "name": "At least one risk should be identified",
+        "type": "required",
+        "params": { "fields": ["risks"] },
+        "severity": "warning"
+      }
+    ]
+  }
+}
