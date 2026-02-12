@@ -1,5 +1,5 @@
 {
-  "schema_id": "doach_efes_extractor",
+  "schema_id": "zero_report",
   "version": "1.0.0",
   "name": "Zero-Stage Appraisal Report Extractor",
   "description": "Extract structured JSON from Israeli zero-stage real estate appraisal reports (דו\"ח אפס / חוות דעת היתכנות). Handles multiple appraiser firm formats, Hebrew OCR artifacts, and multi-phase projects.",
