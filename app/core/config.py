@@ -113,6 +113,10 @@ class Settings(BaseSettings):
             if ext.strip()
         ]
 
+    # Batch API settings
+    enable_batch_api: bool = False  # Feature flag for Anthropic Batch API
+    batch_poll_interval_seconds: int = 30  # Default polling interval
+
     # Request timeout settings
     request_timeout_seconds: int = 300  # 5 minutes default
 

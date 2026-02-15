@@ -5,7 +5,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import Settings, get_settings
 from app.models.execution import TokenUsage
@@ -173,6 +173,114 @@ class AnthropicClient(BaseLLMClient):
         text, usage = await self.generate(json_prompt, document, temperature, max_tokens)
         data = self._extract_json_from_text(text)
         return data, usage
+
+    async def create_batch(
+        self,
+        requests: List[Tuple[str, str, str, float, int]],
+    ) -> str:
+        """Submit a batch of message requests to the Anthropic Batch API.
+
+        Args:
+            requests: List of (custom_id, prompt, document, temperature, max_tokens) tuples.
+
+        Returns:
+            Batch ID string.
+        """
+        try:
+            from anthropic.types.messages.batch_create_params import Request
+
+            batch_requests: list[Request] = []
+            for custom_id, prompt, document, temperature, max_tokens in requests:
+                json_prompt = (
+                    f"{prompt}\n\nRespond with valid JSON only, no markdown or explanations."
+                )
+                batch_requests.append(
+                    Request(
+                        custom_id=custom_id,
+                        params={
+                            "model": self.model,
+                            "max_tokens": max_tokens,
+                            "temperature": temperature,
+                            "system": json_prompt,
+                            "messages": [{"role": "user", "content": document}],
+                        },
+                    )
+                )
+
+            batch = await self.client.messages.batches.create(requests=batch_requests)
+            logger.info(f"Created Anthropic batch: {batch.id}")
+            return batch.id
+
+        except LLMClientError:
+            raise
+        except Exception as e:
+            raise LLMClientError(f"Anthropic Batch API error: {e}")
+
+    async def get_batch_status(self, batch_id: str) -> Dict[str, Any]:
+        """Retrieve the current status of a batch.
+
+        Args:
+            batch_id: Anthropic batch ID.
+
+        Returns:
+            Dict with processing_status, request_counts, and ended_at.
+        """
+        try:
+            batch = await self.client.messages.batches.retrieve(batch_id)
+            return {
+                "processing_status": batch.processing_status,
+                "request_counts": {
+                    "processing": batch.request_counts.processing,
+                    "succeeded": batch.request_counts.succeeded,
+                    "errored": batch.request_counts.errored,
+                    "canceled": batch.request_counts.canceled,
+                    "expired": batch.request_counts.expired,
+                },
+                "ended_at": batch.ended_at,
+                "created_at": batch.created_at,
+            }
+        except Exception as e:
+            raise LLMClientError(f"Anthropic Batch status error: {e}")
+
+    async def get_batch_results(
+        self,
+        batch_id: str,
+    ) -> Dict[str, Tuple[str, TokenUsage]]:
+        """Retrieve results from a completed batch.
+
+        Args:
+            batch_id: Anthropic batch ID.
+
+        Returns:
+            Dict of custom_id → (response_text, token_usage).
+        """
+        try:
+            results: Dict[str, Tuple[str, TokenUsage]] = {}
+            async for entry in await self.client.messages.batches.results(batch_id):
+                custom_id = entry.custom_id
+                if entry.result.type == "succeeded":
+                    message = entry.result.message
+                    content_block = message.content[0]
+                    if hasattr(content_block, "text"):
+                        text = content_block.text
+                    else:
+                        text = ""
+                    usage = TokenUsage(
+                        input_tokens=message.usage.input_tokens,
+                        output_tokens=message.usage.output_tokens,
+                        total_tokens=message.usage.input_tokens + message.usage.output_tokens,
+                    )
+                    results[custom_id] = (text, usage)
+                else:
+                    error_type = entry.result.type
+                    logger.warning(f"Batch request {custom_id} {error_type}")
+                    results[custom_id] = (
+                        "",
+                        TokenUsage(),
+                    )
+            return results
+        except Exception as e:
+            raise LLMClientError(f"Anthropic Batch results error: {e}")
 
 
 class OpenAIClient(BaseLLMClient):

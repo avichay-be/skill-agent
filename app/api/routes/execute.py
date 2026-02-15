@@ -11,7 +11,14 @@ from fastapi.responses import StreamingResponse
 from app.core.config import get_settings
 from app.core.rate_limiter import limiter
 from app.core.security import ApiKeyDep
-from app.models.execution import ExecutionRequest, ExecutionResponse, ExecutionStatus
+from app.models.execution import (
+    BatchExecutionRequest,
+    BatchExecutionResponse,
+    ExecutionRequest,
+    ExecutionResponse,
+    ExecutionStatus,
+)
+from app.services.batch_executor import BatchExecutor, BatchExecutorError, get_batch_executor
 from app.services.executor import SkillExecutor, get_executor
 from app.services.graph_executor import get_graph_executor
 from app.services.skill_registry import SkillRegistry, get_registry
@@ -351,3 +358,103 @@ async def execute_extraction_legacy(
         logger.error(f"Legacy extraction failed: {response.error}")
 
     return response
+
+
+@router.post("/batch", response_model=BatchExecutionResponse)
+@limiter.limit("5/minute")  # type: ignore[misc]
+async def submit_batch_execution(
+    request: Request,
+    batch_request: BatchExecutionRequest,
+    _api_key: ApiKeyDep,
+    registry: Annotated[SkillRegistry, Depends(get_registry)],
+    batch_executor: Annotated[BatchExecutor, Depends(get_batch_executor)],
+) -> BatchExecutionResponse:
+    """Submit a batch of documents for async extraction via Anthropic Batch API.
+
+    This endpoint submits documents for background processing at 50% cost reduction.
+    Batch jobs typically complete within 1 hour (max 24 hours).
+    Use GET /execute/batch/{batch_id} to poll for results.
+
+    Note: Only available with Anthropic vendor and when enable_batch_api is True.
+
+    Args:
+        batch_request: Batch request with documents and skill_name.
+
+    Returns:
+        BatchExecutionResponse with batch_id for polling.
+    """
+    settings = get_settings()
+
+    if not settings.enable_batch_api:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Batch API is not enabled. Set ENABLE_BATCH_API=true.",
+        )
+
+    # Validate skill exists
+    schema = registry.get_schema(batch_request.skill_name)
+    if not schema:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Skill '{batch_request.skill_name}' not found",
+        )
+
+    if not batch_request.documents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No documents provided",
+        )
+
+    logger.info(
+        f"Submitting batch: skill='{batch_request.skill_name}', "
+        f"documents={len(batch_request.documents)}"
+    )
+
+    try:
+        response = await batch_executor.submit_batch(batch_request)
+        logger.info(f"Batch submitted: {response.batch_id}")
+        return response
+    except BatchExecutorError as e:
+        logger.error(f"Batch submission failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.get("/batch/{batch_id}", response_model=BatchExecutionResponse)
+@limiter.limit("30/minute")  # type: ignore[misc]
+async def get_batch_execution_status(
+    request: Request,
+    batch_id: str,
+    _api_key: ApiKeyDep,
+    batch_executor: Annotated[BatchExecutor, Depends(get_batch_executor)],
+) -> BatchExecutionResponse:
+    """Get the status and results of a batch execution.
+
+    Poll this endpoint to check batch progress. When status is 'completed',
+    the results field contains extraction results keyed by document ID.
+
+    Args:
+        batch_id: Batch ID returned from POST /execute/batch.
+
+    Returns:
+        BatchExecutionResponse with status and optional results.
+    """
+    settings = get_settings()
+
+    if not settings.enable_batch_api:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Batch API is not enabled. Set ENABLE_BATCH_API=true.",
+        )
+
+    try:
+        response = await batch_executor.get_batch_status(batch_id)
+        return response
+    except BatchExecutorError as e:
+        logger.error(f"Batch status retrieval failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )

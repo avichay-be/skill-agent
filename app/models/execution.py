@@ -30,6 +30,24 @@ class ExecutionRequest(BaseModel):
     )
 
 
+class DocumentItem(BaseModel):
+    """A single document in a batch request."""
+
+    id: str = Field(..., description="Caller's document identifier")
+    content: str = Field(..., description="Document text content")
+
+
+class BatchExecutionRequest(BaseModel):
+    """Request to execute extraction on multiple documents via Anthropic Batch API."""
+
+    documents: List[DocumentItem] = Field(..., description="Documents to process")
+    skill_name: str = Field(..., description="Schema ID to execute")
+    vendor: Optional[str] = Field(
+        default=None, description="Override LLM vendor (must be anthropic)"
+    )
+    model: Optional[str] = Field(default=None, description="Override default model")
+
+
 class ValidationResult(BaseModel):
     """Result of validation checks."""
 
@@ -77,6 +95,33 @@ class ExecutionResponse(BaseModel):
         default_factory=list, description="Individual skill results"
     )
     error: Optional[str] = Field(default=None, description="Error message if failed")
+
+
+class BatchStatus(str, Enum):
+    """Status of a batch execution."""
+
+    SUBMITTED = "submitted"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELING = "canceling"
+    EXPIRED = "expired"
+
+
+class BatchExecutionResponse(BaseModel):
+    """Response from batch extraction execution."""
+
+    batch_id: str = Field(..., description="Anthropic batch ID")
+    status: BatchStatus = Field(..., description="Batch processing status")
+    total_documents: int = Field(..., description="Number of documents in batch")
+    results: Optional[Dict[str, ExecutionResponse]] = Field(
+        default=None, description="Results keyed by document ID (when completed)"
+    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    completed_at: Optional[datetime] = Field(default=None)
+    request_counts: Optional[Dict[str, int]] = Field(
+        default=None, description="Anthropic batch request counts"
+    )
 
 
 # Import to avoid circular dependency
