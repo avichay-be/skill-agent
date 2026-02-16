@@ -13,6 +13,7 @@ from git.exc import GitCommandError, InvalidGitRepositoryError
 from app.core.config import Settings, get_settings
 from app.models.schema import SchemaConfig
 from app.models.skill import Skill, SkillConfig
+from app.models.workflow import WorkflowConfig
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +235,47 @@ class GitLoader:
 
         logger.info(f"Loaded {len(skills)} skills for schema '{schema_id}'")
         return skills
+
+    def list_workflows(self) -> List[str]:
+        """List all available workflow IDs (JSON file stems in workflows/ dir)."""
+        base = self.get_skills_base_path()
+        workflows_dir = base / "workflows"
+
+        if not workflows_dir.exists() or not workflows_dir.is_dir():
+            return []
+
+        return sorted(
+            item.stem
+            for item in workflows_dir.iterdir()
+            if item.is_file() and item.suffix == ".json"
+        )
+
+    def load_workflow_config(self, workflow_id: str) -> Tuple[WorkflowConfig, Path]:
+        """Load workflow configuration from a JSON file.
+
+        Args:
+            workflow_id: The workflow file stem (without .json).
+
+        Returns:
+            Tuple of (WorkflowConfig, path to JSON file).
+        """
+        base = self.get_skills_base_path()
+        workflow_file = base / "workflows" / f"{workflow_id}.json"
+
+        if not workflow_file.exists():
+            raise GitLoaderError(f"Workflow config not found: {workflow_file}")
+
+        try:
+            with open(workflow_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            config = WorkflowConfig(**data)
+            return config, workflow_file
+
+        except json.JSONDecodeError as e:
+            raise GitLoaderError(f"Invalid JSON in {workflow_file}: {e}") from e
+        except Exception as e:
+            raise GitLoaderError(f"Failed to load workflow config: {e}") from e
 
     def get_changed_schemas(self, changed_files: List[str]) -> List[str]:
         """Determine which schemas were affected by file changes.

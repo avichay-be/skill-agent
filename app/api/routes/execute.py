@@ -19,6 +19,7 @@ from app.models.execution import (
     ExecutionStatus,
 )
 from app.services.batch_executor import BatchExecutor, BatchExecutorError, get_batch_executor
+from app.services.cosmosdb import get_cosmosdb_service
 from app.services.executor import SkillExecutor, get_executor
 from app.services.graph_executor import get_graph_executor
 from app.services.skill_registry import SkillRegistry, get_registry
@@ -82,6 +83,11 @@ async def execute_extraction(
         logger.warning(f"Extraction partially completed: {response.error}")
     else:
         logger.error(f"Extraction failed: {response.error}")
+
+    # Store result in CosmosDB (fire-and-forget)
+    cosmosdb = get_cosmosdb_service()
+    if cosmosdb:
+        await cosmosdb.store_execution_result(response, source="realtime")
 
     return response
 
@@ -212,6 +218,11 @@ async def execute_extraction_from_file(
         logger.warning(f"File extraction partially completed: {response.error}")
     else:
         logger.error(f"File extraction failed: {response.error}")
+
+    # Store result in CosmosDB (fire-and-forget)
+    cosmosdb = get_cosmosdb_service()
+    if cosmosdb:
+        await cosmosdb.store_execution_result(response, source="realtime")
 
     return response
 
@@ -356,6 +367,11 @@ async def execute_extraction_legacy(
         logger.warning(f"Legacy extraction partially completed: {response.error}")
     else:
         logger.error(f"Legacy extraction failed: {response.error}")
+
+    # Store result in CosmosDB (fire-and-forget)
+    cosmosdb = get_cosmosdb_service()
+    if cosmosdb:
+        await cosmosdb.store_execution_result(response, source="realtime")
 
     return response
 

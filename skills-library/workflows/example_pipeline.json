@@ -1,0 +1,20 @@
+{
+    "workflow_id": "example_pipeline",
+    "version": "1.0.0",
+    "name": "Entity Extraction then Summarization",
+    "description": "Extract entities from a document, then summarize the extracted data.",
+    "steps": [
+        {
+            "step_id": "extract_entities",
+            "schema_id": "entity_extractor",
+            "name": "Extract Entities",
+            "on_failure": "stop"
+        },
+        {
+            "step_id": "summarize",
+            "schema_id": "summarizer",
+            "name": "Summarize Extracted Data",
+            "on_failure": "continue"
+        }
+    ]
+}

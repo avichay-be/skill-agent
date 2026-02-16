@@ -24,6 +24,10 @@ class EventType(str, Enum):
     SCHEMA_DELETED = "schema.deleted"
     SCHEMA_RELOADED = "schema.reloaded"
 
+    # Workflow events
+    WORKFLOW_CREATED = "workflow.created"
+    WORKFLOW_UPDATED = "workflow.updated"
+
     # Execution events
     EXECUTION_STARTED = "execution.started"
     EXECUTION_COMPLETED = "execution.completed"

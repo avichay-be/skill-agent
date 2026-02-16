@@ -11,6 +11,19 @@ from app.models.execution import (
 )
 from app.models.schema import LoadedSchema, MergeStrategy, SchemaConfig, ValidationRule
 from app.models.skill import Skill, SkillConfig, SkillExecutionResult, SkillStatus
+from app.models.workflow import (
+    LoadedWorkflow,
+    OnFailure,
+    WorkflowConfig,
+    WorkflowDetailResponse,
+    WorkflowExecutionMetadata,
+    WorkflowExecutionRequest,
+    WorkflowExecutionResponse,
+    WorkflowExecutionStatus,
+    WorkflowListResponse,
+    WorkflowStepConfig,
+    WorkflowStepResult,
+)
 
 __all__ = [
     # Skill models
@@ -35,4 +48,16 @@ __all__ = [
     "ExecutionMetadata",
     "ValidationResult",
     "TokenUsage",
+    # Workflow models
+    "OnFailure",
+    "WorkflowConfig",
+    "WorkflowStepConfig",
+    "LoadedWorkflow",
+    "WorkflowExecutionRequest",
+    "WorkflowStepResult",
+    "WorkflowExecutionStatus",
+    "WorkflowExecutionMetadata",
+    "WorkflowExecutionResponse",
+    "WorkflowListResponse",
+    "WorkflowDetailResponse",
 ]

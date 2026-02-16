@@ -83,6 +83,32 @@ class TestOutput(BaseModel):
     field2: Optional[str] = None
 """)
 
+        # Create workflows directory with a test workflow
+        workflows_dir = skills_path / "workflows"
+        workflows_dir.mkdir()
+        (workflows_dir / "test_workflow.json").write_text(
+            """{
+    "workflow_id": "test_workflow",
+    "version": "1.0.0",
+    "name": "Test Workflow",
+    "description": "A test workflow for unit tests",
+    "steps": [
+        {
+            "step_id": "step_1",
+            "schema_id": "test_schema",
+            "name": "First Step",
+            "on_failure": "stop"
+        },
+        {
+            "step_id": "step_2",
+            "schema_id": "test_schema",
+            "name": "Second Step",
+            "on_failure": "continue"
+        }
+    ]
+}"""
+        )
+
         yield skills_path
 
 
