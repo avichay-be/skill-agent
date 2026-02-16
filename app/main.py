@@ -11,10 +11,11 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.api.routes import admin, execute, schemas, skills, webhooks
+from app.api.routes import admin, execute, schemas, skills, webhooks, workflows
 from app.core.config import get_settings
 from app.core.exceptions import SkillAgentError, skill_agent_exception_handler
 from app.core.rate_limiter import limiter
+from app.services.cosmosdb import close_cosmosdb_service, initialize_cosmosdb_service
 from app.services.skill_registry import SkillRegistry
 
 # Configure logging
@@ -61,15 +62,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             commit = registry.initialize()
             logger.info(
                 f"Registry initialized: {registry.schemas_count} schemas, "
-                f"{registry.skills_count} skills (commit: {commit[:8] if commit != 'local' else 'local'})"
+                f"{registry.skills_count} skills, "
+                f"{registry.workflows_count} workflows "
+                f"(commit: {commit[:8] if commit != 'local' else 'local'})"
             )
         except Exception as e:
             logger.warning(f"Failed to auto-initialize registry: {e}")
             logger.info("Call POST /api/v1/admin/initialize to manually initialize")
 
+    # Initialize CosmosDB if enabled
+    if settings.enable_cosmosdb:
+        try:
+            await initialize_cosmosdb_service()
+        except Exception as e:
+            logger.warning(f"Failed to initialize CosmosDB: {e}")
+
     yield
 
     # Cleanup
+    if settings.enable_cosmosdb:
+        await close_cosmosdb_service()
     logger.info("Shutting down...")
 
 
@@ -112,6 +124,7 @@ def create_app() -> FastAPI:
     app.include_router(schemas.router, prefix=api_prefix)
     app.include_router(execute.router, prefix=api_prefix)
     app.include_router(webhooks.router, prefix=api_prefix)
+    app.include_router(workflows.router, prefix=api_prefix)
 
     # Root endpoint
     @app.get("/")

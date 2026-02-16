@@ -117,6 +117,13 @@ class Settings(BaseSettings):
     enable_batch_api: bool = False  # Feature flag for Anthropic Batch API
     batch_poll_interval_seconds: int = 30  # Default polling interval
 
+    # CosmosDB settings
+    enable_cosmosdb: bool = False  # Feature flag for execution result storage
+    cosmosdb_endpoint: Optional[str] = None
+    cosmosdb_key: Optional[str] = None
+    cosmosdb_database: str = "skill-agent"
+    cosmosdb_container: str = "executions"
+
     # Request timeout settings
     request_timeout_seconds: int = 300  # 5 minutes default
 

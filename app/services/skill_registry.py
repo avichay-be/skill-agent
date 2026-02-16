@@ -13,6 +13,7 @@ from app.core.config import Settings, get_settings
 from app.models.events import EventType, SkillEvent
 from app.models.schema import LoadedSchema, SchemaConfig
 from app.models.skill import Skill, SkillStatus
+from app.models.workflow import LoadedWorkflow, WorkflowConfig
 from app.services.git_loader import GitLoader
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ class SkillRegistry:
 
         self.settings = settings or get_settings()
         self._schemas: Dict[str, LoadedSchema] = {}
+        self._workflows: Dict[str, LoadedWorkflow] = {}
         self._git_loader: Optional[GitLoader] = None
         self._current_commit: Optional[str] = None
         self._events: List[SkillEvent] = []
@@ -60,6 +62,7 @@ class SkillRegistry:
         with cls._lock:
             if cls._instance:
                 cls._instance._schemas.clear()
+                cls._instance._workflows.clear()
                 cls._instance._events.clear()
                 cls._instance._git_loader = None
                 cls._instance._current_commit = None
@@ -112,9 +115,22 @@ class SkillRegistry:
             except Exception as e:
                 logger.error(f"Failed to load schema '{schema_id}': {e}")
 
+        # Load all workflows
+        workflow_ids = self._git_loader.list_workflows()
+        logger.info(f"Found {len(workflow_ids)} workflows: {workflow_ids}")
+
+        for workflow_id in workflow_ids:
+            try:
+                self._load_workflow(workflow_id)
+            except Exception as e:
+                logger.error(f"Failed to load workflow '{workflow_id}': {e}")
+
         self._emit_event(
             EventType.REGISTRY_RELOADED,
-            payload={"schemas_loaded": len(self._schemas)},
+            payload={
+                "schemas_loaded": len(self._schemas),
+                "workflows_loaded": len(self._workflows),
+            },
         )
 
         return self._current_commit
@@ -226,6 +242,14 @@ class SkillRegistry:
                 except Exception as e:
                     logger.error(f"Failed to reload schema '{schema_id}': {e}")
 
+            # Reload all workflows
+            workflow_ids = self._git_loader.list_workflows()
+            for workflow_id in workflow_ids:
+                try:
+                    self._load_workflow(workflow_id)
+                except Exception as e:
+                    logger.error(f"Failed to reload workflow '{workflow_id}': {e}")
+
             self._emit_event(
                 EventType.GIT_SYNC_COMPLETED,
                 payload={"old_commit": old_commit, "new_commit": self._current_commit},
@@ -276,7 +300,39 @@ class SkillRegistry:
 
         return affected
 
+    def _load_workflow(self, workflow_id: str) -> LoadedWorkflow:
+        """Load a single workflow from its JSON file."""
+        if not self._git_loader:
+            raise RegistryError("Registry not initialized. Call initialize() first.")
+
+        config, workflow_path = self._git_loader.load_workflow_config(workflow_id)
+
+        loaded_workflow = LoadedWorkflow(
+            config=config,
+            git_commit=self._current_commit or "unknown",
+            source_path=str(workflow_path),
+        )
+
+        is_update = workflow_id in self._workflows
+        self._workflows[workflow_id] = loaded_workflow
+
+        event_type = EventType.WORKFLOW_UPDATED if is_update else EventType.WORKFLOW_CREATED
+        self._emit_event(event_type, payload={"workflow_id": workflow_id})
+
+        logger.info(
+            f"Loaded workflow '{workflow_id}' v{config.version} with {len(config.steps)} steps"
+        )
+        return loaded_workflow
+
     # Query methods
+
+    def get_workflow(self, workflow_id: str) -> Optional[LoadedWorkflow]:
+        """Get a loaded workflow by ID."""
+        return self._workflows.get(workflow_id)
+
+    def list_workflows(self) -> List[WorkflowConfig]:
+        """List all loaded workflow configs."""
+        return [w.config for w in self._workflows.values()]
 
     def get_schema(self, schema_id: str) -> Optional[LoadedSchema]:
         """Get a loaded schema by ID."""
@@ -335,6 +391,11 @@ class SkillRegistry:
     def skills_count(self) -> int:
         """Get total number of loaded skills."""
         return sum(len(s.skills) for s in self._schemas.values())
+
+    @property
+    def workflows_count(self) -> int:
+        """Get number of loaded workflows."""
+        return len(self._workflows)
 
 
 # Convenience function for dependency injection

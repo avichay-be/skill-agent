@@ -392,7 +392,7 @@ class LeaseAgreement(BaseModel):
     status: Optional[str] = Field(None)
     mortgages: Optional[List[MortgageEntry]] = Field(default_factory=list)
     liens: Optional[List[LienEntry]] = Field(default_factory=list)
-    leaseeholders: Optional[List[Leaseholder]] = Field(default_factory=list)
+    leaseeholders: Optional[List[Union[str, Leaseholder]]] = Field(default_factory=list)
 
 
 class DevelopmentContract(BaseModel):
@@ -475,8 +475,8 @@ class LegalInfo(BaseModel):
     lease_agreement: Optional[LeaseAgreement] = Field(None, alias="leaseAgreement")
     development_contract: Optional[DevelopmentContract] = Field(None, alias="developmentContract")
     guarantees: Optional[Union[List[GuaranteeEntry], GuaranteeEntry]] = Field(None)
-    ownership: Optional[Ownership] = Field(None)
-    supervision: Optional[Supervision] = Field(None)
+    ownership: Optional[Union[str, Ownership]] = Field(None)
+    supervision: Optional[Union[str, Supervision]] = Field(None)
     other_legal_info: Optional[OtherLegalInfo] = Field(None, alias="otherLegalInfo")
 
 
@@ -610,7 +610,7 @@ class MarketComparables(BaseModel):
     search_period: Optional[str] = Field(None, alias="searchPeriod")
     total_transactions: Optional[int] = Field(None, alias="totalTransactions")
     price_range: Optional[PriceRange] = Field(None, alias="priceRange")
-    average_by_rooms: Optional[Dict[str, RoomAverage]] = Field(default_factory=dict, alias="averageByRooms")
+    average_by_rooms: Optional[Dict[str, Union[int, RoomAverage]]] = Field(default_factory=dict, alias="averageByRooms")
     transactions: Optional[List[Transaction]] = Field(default_factory=list)
 
 
@@ -736,7 +736,7 @@ class ReportMetadata(BaseModel):
     bank_recipient: Optional[Union[str, List[str]]] = Field(None, alias="bankRecipient")
     bank_branch: Optional[str] = Field(None, alias="bankBranch")
     bank_address: Optional[str] = Field(None, alias="bankAddress")
-    bank_contacts: Optional[List[BankContact]] = Field(default_factory=list, alias="bankContacts")
+    bank_contacts: Optional[List[Union[str, BankContact]]] = Field(default_factory=list, alias="bankContacts")
     report_date: Optional[str] = Field(None, alias="reportDate")
     visit_date: Optional[str] = Field(None, alias="visitDate")
     site_visit_date: Optional[str] = Field(None, alias="siteVisitDate")
@@ -753,7 +753,7 @@ class ReportMetadata(BaseModel):
     phase_count: Optional[int] = Field(None, alias="phaseCount")
     phase1_units: Optional[int] = Field(None, alias="phase1Units")
     phase2_units: Optional[int] = Field(None, alias="phase2Units")
-    dwelling_types: Optional[List[Dict[str, Any]]] = Field(default_factory=list, alias="dwellingTypes")
+    dwelling_types: Optional[List[Union[str, Dict[str, Any]]]] = Field(default_factory=list, alias="dwellingTypes")
     previous_report_date: Optional[str] = Field(None, alias="previousReportDate")
     previous_report_ref: Optional[str] = Field(None, alias="previousReportRef")
     visited_by: Optional[str] = Field(None, alias="visitedBy")
@@ -789,9 +789,9 @@ class DoachEfesResult(BaseModel):
 
     # Required sections
     project_info: ProjectInfo = Field(..., alias="projectInfo", description="Project identification")
-    financial_summary: FinancialSummary = Field(..., alias="financialSummary", description="Financial overview")
+    financial_summary: Optional[FinancialSummary] = Field(None, alias="financialSummary", description="Financial overview")
     revenue_by_track: List[RevenueTrack] = Field(default_factory=list, alias="revenueByTrack", description="Revenue by track/phase")
-    expense_breakdown: ExpenseBreakdown = Field(..., alias="expenseBreakdown", description="Three-way expense breakdown")
+    expense_breakdown: Optional[ExpenseBreakdown] = Field(None, alias="expenseBreakdown", description="Three-way expense breakdown")
     risks: List[Risk] = Field(default_factory=list, description="Risk assessment entries")
 
     # Optional sections

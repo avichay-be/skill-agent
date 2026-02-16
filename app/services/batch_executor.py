@@ -15,6 +15,7 @@ from app.models.execution import (
     ExecutionStatus,
     TokenUsage,
 )
+from app.services.cosmosdb import get_cosmosdb_service
 from app.services.llm_client import AnthropicClient, LLMClientError, LLMClientFactory
 from app.services.skill_registry import SkillRegistry, get_registry
 
@@ -299,6 +300,17 @@ class BatchExecutor:
                 data=merged_data if merged_data else None,
                 metadata=exec_metadata,
             )
+
+        # Store each per-document result in CosmosDB (fire-and-forget)
+        cosmosdb = get_cosmosdb_service()
+        if cosmosdb:
+            for doc_id, resp in responses.items():
+                await cosmosdb.store_execution_result(
+                    resp,
+                    source="batch",
+                    document_id=doc_id,
+                    batch_id=batch_id,
+                )
 
         return responses
 
