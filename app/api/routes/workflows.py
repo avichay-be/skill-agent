@@ -109,8 +109,9 @@ async def execute_workflow(
     response = await executor.execute(workflow_request)
 
     # Store result in CosmosDB (fire-and-forget)
-    cosmosdb = get_cosmosdb_service()
-    if cosmosdb:
-        await cosmosdb.store_workflow_result(response)
+    if workflow_request.save_to_cosmos:
+        cosmosdb = get_cosmosdb_service()
+        if cosmosdb:
+            await cosmosdb.store_workflow_result(response)
 
     return response

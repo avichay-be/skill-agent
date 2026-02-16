@@ -28,6 +28,7 @@ class ExecutionRequest(BaseModel):
     options: Dict[str, Any] = Field(
         default_factory=dict, description="Additional execution options"
     )
+    save_to_cosmos: bool = Field(default=True, description="Whether to persist result to CosmosDB")
 
 
 class DocumentItem(BaseModel):

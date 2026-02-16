@@ -85,9 +85,10 @@ async def execute_extraction(
         logger.error(f"Extraction failed: {response.error}")
 
     # Store result in CosmosDB (fire-and-forget)
-    cosmosdb = get_cosmosdb_service()
-    if cosmosdb:
-        await cosmosdb.store_execution_result(response, source="realtime")
+    if exec_request.save_to_cosmos:
+        cosmosdb = get_cosmosdb_service()
+        if cosmosdb:
+            await cosmosdb.store_execution_result(response, source="realtime")
 
     return response
 
@@ -100,6 +101,9 @@ async def execute_extraction_from_file(
     skill_name: Annotated[str, Form(description="Skill name to execute")],
     vendor: Annotated[Optional[str], Form(description="Override default LLM vendor")] = None,
     model: Annotated[Optional[str], Form(description="Override default model")] = None,
+    save_to_cosmos: Annotated[
+        bool, Form(description="Whether to persist result to CosmosDB")
+    ] = True,
     _api_key: ApiKeyDep = None,  # type: ignore[assignment]
     registry: Annotated[Optional[SkillRegistry], Depends(get_registry)] = None,
     executor: Annotated[Optional[SkillExecutor], Depends(get_executor)] = None,
@@ -191,6 +195,7 @@ async def execute_extraction_from_file(
         skill_name=skill_name,
         vendor=vendor,
         model=model,
+        save_to_cosmos=save_to_cosmos,
     )
 
     # Ensure executor is not None
@@ -220,9 +225,10 @@ async def execute_extraction_from_file(
         logger.error(f"File extraction failed: {response.error}")
 
     # Store result in CosmosDB (fire-and-forget)
-    cosmosdb = get_cosmosdb_service()
-    if cosmosdb:
-        await cosmosdb.store_execution_result(response, source="realtime")
+    if exec_request.save_to_cosmos:
+        cosmosdb = get_cosmosdb_service()
+        if cosmosdb:
+            await cosmosdb.store_execution_result(response, source="realtime")
 
     return response
 
@@ -369,9 +375,10 @@ async def execute_extraction_legacy(
         logger.error(f"Legacy extraction failed: {response.error}")
 
     # Store result in CosmosDB (fire-and-forget)
-    cosmosdb = get_cosmosdb_service()
-    if cosmosdb:
-        await cosmosdb.store_execution_result(response, source="realtime")
+    if exec_request.save_to_cosmos:
+        cosmosdb = get_cosmosdb_service()
+        if cosmosdb:
+            await cosmosdb.store_execution_result(response, source="realtime")
 
     return response
 
