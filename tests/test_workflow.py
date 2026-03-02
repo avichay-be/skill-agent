@@ -73,53 +73,64 @@ class TestGitLoaderWorkflows:
     """Test workflow loading from GitLoader."""
 
     def test_list_workflows(self, temp_skills_dir: Path) -> None:
+        from app.core.config import get_settings
         from app.services.git_loader import GitLoader
 
-        loader = GitLoader()
-        loader._local_path = temp_skills_dir
-        loader._is_direct_skills_path = True
-
-        workflows = loader.list_workflows()
-        assert "test_workflow" in workflows
+        os.environ["WORKFLOWS_PATH"] = str(temp_skills_dir / "workflows")
+        get_settings.cache_clear()
+        try:
+            loader = GitLoader()
+            workflows = loader.list_workflows()
+            assert "test_workflow" in workflows
+        finally:
+            get_settings.cache_clear()
 
     def test_list_workflows_no_dir(self, temp_skills_dir: Path) -> None:
         """list_workflows returns empty when workflows/ doesn't exist."""
-        # Remove workflows dir
         import shutil
 
+        from app.core.config import get_settings
         from app.services.git_loader import GitLoader
 
         workflows_dir = temp_skills_dir / "workflows"
         if workflows_dir.exists():
             shutil.rmtree(workflows_dir)
 
-        loader = GitLoader()
-        loader._local_path = temp_skills_dir
-        loader._is_direct_skills_path = True
-
-        assert loader.list_workflows() == []
+        os.environ["WORKFLOWS_PATH"] = str(temp_skills_dir / "workflows")
+        get_settings.cache_clear()
+        try:
+            loader = GitLoader()
+            assert loader.list_workflows() == []
+        finally:
+            get_settings.cache_clear()
 
     def test_load_workflow_config(self, temp_skills_dir: Path) -> None:
+        from app.core.config import get_settings
         from app.services.git_loader import GitLoader
 
-        loader = GitLoader()
-        loader._local_path = temp_skills_dir
-        loader._is_direct_skills_path = True
-
-        config, path = loader.load_workflow_config("test_workflow")
-        assert config.workflow_id == "test_workflow"
-        assert len(config.steps) == 2
-        assert path.exists()
+        os.environ["WORKFLOWS_PATH"] = str(temp_skills_dir / "workflows")
+        get_settings.cache_clear()
+        try:
+            loader = GitLoader()
+            config, path = loader.load_workflow_config("test_workflow")
+            assert config.workflow_id == "test_workflow"
+            assert len(config.steps) == 2
+            assert path.exists()
+        finally:
+            get_settings.cache_clear()
 
     def test_load_workflow_config_not_found(self, temp_skills_dir: Path) -> None:
+        from app.core.config import get_settings
         from app.services.git_loader import GitLoader, GitLoaderError
 
-        loader = GitLoader()
-        loader._local_path = temp_skills_dir
-        loader._is_direct_skills_path = True
-
-        with pytest.raises(GitLoaderError, match="not found"):
-            loader.load_workflow_config("nonexistent")
+        os.environ["WORKFLOWS_PATH"] = str(temp_skills_dir / "workflows")
+        get_settings.cache_clear()
+        try:
+            loader = GitLoader()
+            with pytest.raises(GitLoaderError, match="not found"):
+                loader.load_workflow_config("nonexistent")
+        finally:
+            get_settings.cache_clear()
 
 
 # ── SkillRegistry tests ───────────────────────────────────────────────
@@ -135,6 +146,7 @@ class TestSkillRegistryWorkflows:
         SkillRegistry.reset()
         os.environ["LOCAL_SKILLS_PATH"] = str(temp_skills_dir)
         os.environ["SKILLS_BASE_PATH"] = ""
+        os.environ["WORKFLOWS_PATH"] = str(temp_skills_dir / "workflows")
         get_settings.cache_clear()
 
         try:
@@ -154,6 +166,7 @@ class TestSkillRegistryWorkflows:
         SkillRegistry.reset()
         os.environ["LOCAL_SKILLS_PATH"] = str(temp_skills_dir)
         os.environ["SKILLS_BASE_PATH"] = ""
+        os.environ["WORKFLOWS_PATH"] = str(temp_skills_dir / "workflows")
         get_settings.cache_clear()
 
         try:
@@ -173,6 +186,7 @@ class TestSkillRegistryWorkflows:
         SkillRegistry.reset()
         os.environ["LOCAL_SKILLS_PATH"] = str(temp_skills_dir)
         os.environ["SKILLS_BASE_PATH"] = ""
+        os.environ["WORKFLOWS_PATH"] = str(temp_skills_dir / "workflows")
         get_settings.cache_clear()
 
         try:
