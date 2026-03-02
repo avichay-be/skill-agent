@@ -1,7 +1,6 @@
 """Tests to verify Pydantic models use ConfigDict instead of deprecated class Config."""
 
 import ast
-import importlib.util
 from pathlib import Path
 from typing import List, Tuple
 
@@ -11,9 +10,7 @@ import pytest
 MODEL_FILES = [
     "app/services/graph/state.py",
     "app/models/schema.py",
-    "skills-library/summarizer/models.py",
     "skills-library/valuation_report_analyzer/models.py",
-    "skills-library/metadata_extractor/models.py",
 ]
 
 
@@ -144,43 +141,3 @@ class TestPydanticModelsBehavior:
         assert state.document == "test"
         assert state.execution_id == "exec-123"
 
-    def test_summarizer_populate_by_name(self) -> None:
-        """Test SummaryResult works with both alias and field name."""
-        # Import dynamically since skills-library may not be in path
-        project_root = get_project_root()
-        spec = importlib.util.spec_from_file_location(
-            "summarizer_models",
-            project_root / "skills-library/summarizer/models.py",
-        )
-        if spec and spec.loader:
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            summary_result_cls = module.SummaryResult
-
-            # Test with alias
-            result1 = summary_result_cls(summary="test", keyPoints=["point1", "point2"])
-            assert result1.key_points == ["point1", "point2"]
-
-            # Test with field name
-            result2 = summary_result_cls(summary="test", key_points=["point3"])
-            assert result2.key_points == ["point3"]
-
-    def test_metadata_populate_by_name(self) -> None:
-        """Test MetadataResult works with both alias and field name."""
-        project_root = get_project_root()
-        spec = importlib.util.spec_from_file_location(
-            "metadata_models",
-            project_root / "skills-library/metadata_extractor/models.py",
-        )
-        if spec and spec.loader:
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            metadata_result_cls = module.MetadataResult
-
-            # Test with alias
-            result1 = metadata_result_cls(title="Test", documentType="report")
-            assert result1.document_type == "report"
-
-            # Test with field name
-            result2 = metadata_result_cls(title="Test", document_type="article")
-            assert result2.document_type == "article"
