@@ -137,9 +137,16 @@ class TestCosmosDBService:
     @pytest.mark.asyncio
     async def test_initialize_with_connection_error_logs_exception(self) -> None:
         """A connection error during initialization should be logged gracefully."""
+        mock_cosmos_client = MagicMock(side_effect=Exception("Connection refused"))
+        mock_aio = MagicMock()
+        mock_aio.CosmosClient = mock_cosmos_client
+
         with (
             patch("app.services.cosmosdb.get_settings") as mock_settings,
-            patch("azure.cosmos.aio.CosmosClient", side_effect=Exception("Connection refused")),
+            patch.dict(
+                "sys.modules",
+                {"azure": MagicMock(), "azure.cosmos": MagicMock(), "azure.cosmos.aio": mock_aio},
+            ),
         ):
             mock_settings.return_value = MagicMock(
                 cosmosdb_endpoint="https://test.documents.azure.com:443/",
