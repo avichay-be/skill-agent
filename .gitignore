@@ -67,3 +67,6 @@ Thumbs.db
 # Git cloned skills (temp directory)
 skills-temp/
 .env.example
+=0.1.9
+.gitignore
+=4.7.0

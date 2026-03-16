@@ -1,0 +1,20 @@
+{
+    "workflow_id": "valuation_to_dashboard",
+    "version": "1.0.0",
+    "name": "Valuation Report → HTML Dashboard",
+    "description": "Extract structured data from a valuation report, then convert the JSON output into an interactive HTML dashboard.",
+    "steps": [
+        {
+            "step_id": "extract_valuation",
+            "schema_id": "valuation_report_analyzer",
+            "name": "Extract Valuation Data",
+            "on_failure": "stop"
+        },
+        {
+            "step_id": "generate_dashboard",
+            "schema_id": "json-to-html",
+            "name": "Generate HTML Dashboard",
+            "on_failure": "continue"
+        }
+    ]
+}

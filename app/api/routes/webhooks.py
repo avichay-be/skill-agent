@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
 
 from app.core.config import Settings, get_settings
+from app.core.security import ApiKeyDep
 from app.models.events import GitWebhookPayload, SkillEvent
 from app.services.skill_registry import SkillRegistry, get_registry
 
@@ -145,6 +146,7 @@ async def handle_git_webhook(
 
 @router.post("/reload", response_model=WebhookResponse)
 async def force_reload(
+    _api_key: ApiKeyDep,
     registry: Annotated[SkillRegistry, Depends(get_registry)],
 ) -> WebhookResponse:
     """Force reload all skills from Git.

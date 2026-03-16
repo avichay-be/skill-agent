@@ -236,10 +236,13 @@ class GitLoader:
         logger.info(f"Loaded {len(skills)} skills for schema '{schema_id}'")
         return skills
 
+    def _get_workflows_dir(self) -> Path:
+        """Get the workflows directory path from settings."""
+        return Path(self.settings.workflows_path)
+
     def list_workflows(self) -> List[str]:
         """List all available workflow IDs (JSON file stems in workflows/ dir)."""
-        base = self.get_skills_base_path()
-        workflows_dir = base / "workflows"
+        workflows_dir = self._get_workflows_dir()
 
         if not workflows_dir.exists() or not workflows_dir.is_dir():
             return []
@@ -259,8 +262,8 @@ class GitLoader:
         Returns:
             Tuple of (WorkflowConfig, path to JSON file).
         """
-        base = self.get_skills_base_path()
-        workflow_file = base / "workflows" / f"{workflow_id}.json"
+        workflows_dir = self._get_workflows_dir()
+        workflow_file = workflows_dir / f"{workflow_id}.json"
 
         if not workflow_file.exists():
             raise GitLoaderError(f"Workflow config not found: {workflow_file}")

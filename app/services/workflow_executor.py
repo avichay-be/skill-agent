@@ -81,6 +81,7 @@ class WorkflowExecutor:
                 vendor=request.vendor,
                 model=request.model,
                 options=request.options,
+                save_to_cosmos=request.save_to_cosmos,
             )
 
             try:

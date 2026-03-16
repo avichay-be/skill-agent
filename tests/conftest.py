@@ -138,6 +138,7 @@ def app_client(temp_skills_dir: Path) -> Generator[TestClient, None, None]:
     # Update settings
     os.environ["LOCAL_SKILLS_PATH"] = str(temp_skills_dir)
     os.environ["SKILLS_BASE_PATH"] = ""
+    os.environ["WORKFLOWS_PATH"] = str(temp_skills_dir / "workflows")
 
     # Clear settings cache
     from app.core.config import get_settings

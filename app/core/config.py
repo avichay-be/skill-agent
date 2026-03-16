@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # Local skills path (for development or local-only mode)
     local_skills_path: Optional[str] = None
 
+    # Workflows path (separate from skills-library, defaults to ./workflows)
+    workflows_path: str = "./workflows"
+
     # LLM settings
     default_vendor: str = "gemini"
     default_model: Optional[str] = "gemini-3-flash-preview"
