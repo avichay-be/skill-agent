@@ -1,24 +1,25 @@
 """Pydantic output models for JSON → HTML Dashboard Generator pipeline."""
-from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, ConfigDict, Field
 
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
 
 # ─── Step 1: analyze_json_structure output ───────────────────────
 
+
 class FieldClassification(BaseModel):
     """Classification of a single JSON field for visualization."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     path: str = Field(..., description="Dot-notation path: e.g. 'financialSummary.totalRevenue'")
     field_type: str = Field(
         ...,
         alias="fieldType",
-        description="One of: kpi, table, chart, timeline, status, risk, matrix, tag, text, boolean, null"
+        description="One of: kpi, table, chart, timeline, status, risk, matrix, tag, text, boolean, null",
     )
     data_type: str = Field(
-        ...,
-        alias="dataType",
-        description="JS type: number, string, boolean, object, array, null"
+        ..., alias="dataType", description="JS type: number, string, boolean, object, array, null"
     )
     is_financial: bool = Field(False, alias="isFinancial")
     is_percentage: bool = Field(False, alias="isPercentage")
@@ -29,11 +30,12 @@ class FieldClassification(BaseModel):
 
 class JsonAnalysis(BaseModel):
     """Output of the JSON structure analysis step."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     shape: str = Field(
         ...,
-        description="Detected shape: 'pipeline_output', 'valuation_report', 'zero_report', 'generic'"
+        description="Detected shape: 'pipeline_output', 'valuation_report', 'zero_report', 'generic'",
     )
     top_level_keys: List[str] = Field(..., alias="topLevelKeys")
     total_field_count: int = Field(..., alias="totalFieldCount")
@@ -50,16 +52,18 @@ class JsonAnalysis(BaseModel):
 
 # ─── Step 2: map_sections_and_tabs output ────────────────────────
 
+
 class TabField(BaseModel):
     """A field assigned to a specific tab."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     path: str
     visualization: str = Field(
         ...,
         description="Visual type: 'kpi_card', 'row_list', 'expense_table', 'pie_chart', "
-                    "'bar_chart', 'progress_bar', 'checklist', 'timeline', 'risk_cards', "
-                    "'matrix_grid', 'tag_list', 'text_block'"
+        "'bar_chart', 'progress_bar', 'checklist', 'timeline', 'risk_cards', "
+        "'matrix_grid', 'tag_list', 'text_block'",
     )
     label: str = Field(..., description="Hebrew display label")
     color: Optional[str] = Field(None, description="CSS color variable or hex")
@@ -68,18 +72,22 @@ class TabField(BaseModel):
 
 class TabDefinition(BaseModel):
     """Definition of one HTML tab/panel."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     tab_id: str = Field(..., alias="tabId", description="e.g. 'financials', 'legal'")
     label: str = Field(..., description="Hebrew tab label")
     icon: str = Field(..., description="Emoji icon for tab")
-    skill_id: Optional[str] = Field(None, alias="skillId", description="Source skill if pipeline output")
+    skill_id: Optional[str] = Field(
+        None, alias="skillId", description="Source skill if pipeline output"
+    )
     fields: List[TabField] = Field(default_factory=list)
     has_charts: bool = Field(False, alias="hasCharts")
 
 
 class HeaderConfig(BaseModel):
     """Configuration for the dashboard header."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     title: str
@@ -90,6 +98,7 @@ class HeaderConfig(BaseModel):
 
 class FooterConfig(BaseModel):
     """Configuration for the dashboard footer."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     report_date: Optional[str] = Field(None, alias="reportDate")
@@ -102,6 +111,7 @@ class FooterConfig(BaseModel):
 
 class SectionMapping(BaseModel):
     """Output of the section mapping step."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     tabs: List[TabDefinition]
@@ -113,8 +123,10 @@ class SectionMapping(BaseModel):
 
 # ─── Step 3a: generate_html_header output ────────────────────────
 
+
 class HtmlHeader(BaseModel):
     """Generated HTML header section including DOCTYPE through tab bar."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     css: str = Field(..., description="Complete CSS block for <style> tag")
@@ -124,8 +136,10 @@ class HtmlHeader(BaseModel):
 
 # ─── Step 3b: generate_html_panels output ────────────────────────
 
+
 class PanelHtml(BaseModel):
     """Generated HTML for one tab panel."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     tab_id: str = Field(..., alias="tabId")
@@ -135,6 +149,7 @@ class PanelHtml(BaseModel):
 
 class HtmlPanels(BaseModel):
     """All generated tab panels."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     panels: List[PanelHtml]
@@ -143,8 +158,10 @@ class HtmlPanels(BaseModel):
 
 # ─── Step 3c: generate_html_charts output ────────────────────────
 
+
 class ChartConfig(BaseModel):
     """A single Chart.js configuration."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     canvas_id: str = Field(..., alias="canvasId")
@@ -156,6 +173,7 @@ class ChartConfig(BaseModel):
 
 class HtmlCharts(BaseModel):
     """All generated Chart.js configurations and scripts."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     chart_configs: List[ChartConfig] = Field(default_factory=list, alias="chartConfigs")
@@ -165,8 +183,10 @@ class HtmlCharts(BaseModel):
 
 # ─── Step 4: validate output ─────────────────────────────────────
 
+
 class ValidationNote(BaseModel):
     """A single validation check result."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     rule_id: str = Field(..., alias="ruleId")
@@ -176,11 +196,10 @@ class ValidationNote(BaseModel):
 
 class ValidateOutput(BaseModel):
     """Output of the validation and assembly step."""
+
     model_config = ConfigDict(populate_by_name=True)
 
-    validation_notes: List[ValidationNote] = Field(
-        default_factory=list, alias="validationNotes"
-    )
+    validation_notes: List[ValidationNote] = Field(default_factory=list, alias="validationNotes")
     all_fields_covered: bool = Field(False, alias="allFieldsCovered")
     tab_count: int = Field(0, alias="tabCount")
     chart_count: int = Field(0, alias="chartCount")
@@ -190,8 +209,10 @@ class ValidateOutput(BaseModel):
 
 # ─── Top-level result ────────────────────────────────────────────
 
+
 class DashboardResult(BaseModel):
     """Top-level output model aggregating all sub-skill results."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     json_analysis: JsonAnalysis = Field(..., alias="jsonAnalysis")
@@ -200,4 +221,6 @@ class DashboardResult(BaseModel):
     html_panels: HtmlPanels = Field(..., alias="htmlPanels")
     html_charts: HtmlCharts = Field(..., alias="htmlCharts")
     validation_notes: ValidateOutput = Field(..., alias="validationNotes")
-    assembled_html: str = Field(..., alias="assembledHtml", description="Final self-contained HTML string")
+    assembled_html: str = Field(
+        ..., alias="assembledHtml", description="Final self-contained HTML string"
+    )

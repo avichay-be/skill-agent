@@ -35,7 +35,9 @@ class CosmosDBService:
             return
 
         try:
-            from azure.cosmos.aio import CosmosClient  # type: ignore[import-untyped]
+            from azure.cosmos.aio import (  # type: ignore[import-untyped,import-not-found]
+                CosmosClient,
+            )
 
             self._client = CosmosClient(
                 settings.cosmosdb_endpoint, credential=settings.cosmosdb_key

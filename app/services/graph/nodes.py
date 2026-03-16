@@ -13,9 +13,9 @@ from typing import Any, Dict, List, Optional, cast
 from app.core.config import get_settings
 from app.models.schema import MergeStrategy
 from app.models.skill import Skill, SkillExecutionResult
+from app.services.graph.state import SkillGraphState
 from app.services.llm_client import LLMClientError, LLMClientFactory
 from app.services.skill_registry import get_registry
-from app.services.graph.state import SkillGraphState
 
 logger = logging.getLogger(__name__)
 
@@ -578,7 +578,9 @@ async def save_checkpoint(state: SkillGraphState | Dict[str, Any]) -> Dict[str, 
 
 
 # ===== 8. Dynamic Skill Selection Node (Optional) =====
-async def analyze_document_and_select_skills(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
+async def analyze_document_and_select_skills(
+    state: SkillGraphState | Dict[str, Any],
+) -> Dict[str, Any]:
     """Analyze document to dynamically select which skills to run.
 
     This is a new capability enabled by LangGraph - we can use an LLM
