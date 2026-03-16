@@ -578,7 +578,9 @@ async def save_checkpoint(state: SkillGraphState | Dict[str, Any]) -> Dict[str, 
 
 
 # ===== 8. Dynamic Skill Selection Node (Optional) =====
-async def analyze_document_and_select_skills(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
+async def analyze_document_and_select_skills(
+    state: SkillGraphState | Dict[str, Any],
+) -> Dict[str, Any]:
     """Analyze document to dynamically select which skills to run.
 
     This is a new capability enabled by LangGraph - we can use an LLM

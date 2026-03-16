@@ -140,4 +140,3 @@ class TestPydanticModelsBehavior:
         )
         assert state.document == "test"
         assert state.execution_id == "exec-123"
-
