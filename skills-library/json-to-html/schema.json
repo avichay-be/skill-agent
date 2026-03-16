@@ -1,0 +1,157 @@
+{
+  "schema_id": "json-to-html",
+  "version": "1.0.0",
+  "name": "JSON → HTML Dashboard Generator",
+  "description": "Converts structured JSON extraction results into self-contained HTML dashboards with tabbed navigation, Chart.js visualizations, and Hebrew RTL support. Decomposes the generation pipeline into: JSON analysis, section mapping, HTML generation, and validation.",
+  "output_model": "models.DashboardResult",
+
+  "skills": [
+    {
+      "id": "analyze_json_structure",
+      "name": "Analyze JSON Structure",
+      "prompt_file": "prompts/analyze_json_structure.md",
+      "parallel_group": 1,
+      "timeout_seconds": 60,
+      "retry_count": 1,
+      "output_fields": ["jsonAnalysis"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active"
+    },
+    {
+      "id": "map_sections_and_tabs",
+      "name": "Map Sections to Tabs",
+      "prompt_file": "prompts/map_sections_and_tabs.md",
+      "parallel_group": 2,
+      "timeout_seconds": 60,
+      "retry_count": 1,
+      "output_fields": ["sectionMapping"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active",
+      "depends_on": ["analyze_json_structure"]
+    },
+    {
+      "id": "generate_html_header",
+      "name": "Generate HTML Header & Styles",
+      "prompt_file": "prompts/generate_html_header.md",
+      "parallel_group": 3,
+      "timeout_seconds": 90,
+      "retry_count": 1,
+      "output_fields": ["htmlHeader"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active",
+      "depends_on": ["map_sections_and_tabs"]
+    },
+    {
+      "id": "generate_html_panels",
+      "name": "Generate HTML Tab Panels",
+      "prompt_file": "prompts/generate_html_panels.md",
+      "parallel_group": 3,
+      "timeout_seconds": 120,
+      "retry_count": 2,
+      "output_fields": ["htmlPanels"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active",
+      "depends_on": ["map_sections_and_tabs"]
+    },
+    {
+      "id": "generate_html_charts",
+      "name": "Generate Chart.js Scripts",
+      "prompt_file": "prompts/generate_html_charts.md",
+      "parallel_group": 3,
+      "timeout_seconds": 90,
+      "retry_count": 1,
+      "output_fields": ["htmlCharts"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active",
+      "depends_on": ["map_sections_and_tabs"]
+    },
+    {
+      "id": "validate",
+      "name": "Validate & Assemble HTML",
+      "prompt_file": "prompts/validate.md",
+      "parallel_group": 4,
+      "timeout_seconds": 60,
+      "retry_count": 1,
+      "output_fields": ["validationNotes", "assembledHtml"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active",
+      "depends_on": ["generate_html_header", "generate_html_panels", "generate_html_charts"]
+    }
+  ],
+
+  "post_processing": {
+    "merge_strategy": "assemble_html",
+    "assembly_order": ["htmlHeader", "htmlPanels", "htmlCharts"],
+    "output_format": "single_html_file",
+    "validation_rules": [
+      {
+        "id": "VAL001",
+        "type": "required",
+        "params": { "fields": ["jsonAnalysis.shape", "jsonAnalysis.topLevelKeys"] },
+        "severity": "error",
+        "message": "JSON analysis must identify shape and top-level keys"
+      },
+      {
+        "id": "VAL002",
+        "type": "required",
+        "params": { "fields": ["sectionMapping.tabs"] },
+        "severity": "error",
+        "message": "Section mapping must produce at least one tab"
+      },
+      {
+        "id": "VAL003",
+        "type": "cross_check",
+        "params": { "formula": "len(sectionMapping.tabs) >= 1 AND len(sectionMapping.tabs) <= 10" },
+        "severity": "warning",
+        "message": "Dashboard should have 1-10 tabs"
+      },
+      {
+        "id": "VAL004",
+        "type": "cross_check",
+        "params": { "formula": "all fields in jsonAnalysis.allFields appear in at least one tab panel" },
+        "severity": "warning",
+        "message": "Every JSON field must be represented in the HTML output"
+      },
+      {
+        "id": "VAL005",
+        "type": "required",
+        "params": { "fields": ["htmlHeader.css", "htmlHeader.headerHtml"] },
+        "severity": "error",
+        "message": "HTML header must include CSS and header markup"
+      },
+      {
+        "id": "VAL006",
+        "type": "cross_check",
+        "params": { "formula": "count(htmlPanels.panels) == count(sectionMapping.tabs)" },
+        "severity": "error",
+        "message": "Number of HTML panels must match number of mapped tabs"
+      },
+      {
+        "id": "VAL007",
+        "type": "cross_check",
+        "params": { "formula": "htmlCharts.chartConfigs are valid Chart.js JSON" },
+        "severity": "warning",
+        "message": "Chart configurations must be valid Chart.js syntax"
+      },
+      {
+        "id": "VAL008",
+        "type": "cross_check",
+        "params": { "formula": "assembledHtml contains <!DOCTYPE html> AND </html>" },
+        "severity": "error",
+        "message": "Assembled HTML must be a complete document"
+      }
+    ]
+  }
+}
