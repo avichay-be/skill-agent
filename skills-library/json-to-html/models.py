@@ -1,7 +1,7 @@
 """Pydantic output models for JSON → HTML Dashboard Generator pipeline."""
-from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, ConfigDict, Field
 
 # ─── Step 1: analyze_json_structure output ───────────────────────
 

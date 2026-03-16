@@ -13,9 +13,9 @@ from typing import Any, Dict, List, Optional, cast
 from app.core.config import get_settings
 from app.models.schema import MergeStrategy
 from app.models.skill import Skill, SkillExecutionResult
+from app.services.graph.state import SkillGraphState
 from app.services.llm_client import LLMClientError, LLMClientFactory
 from app.services.skill_registry import get_registry
-from app.services.graph.state import SkillGraphState
 
 logger = logging.getLogger(__name__)
 

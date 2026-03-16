@@ -1,7 +1,7 @@
 """Regression tests for recently fixed execution and webhook behavior."""
 
-import io
 import inspect
+import io
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -9,8 +9,8 @@ import pytest
 from fastapi import UploadFile
 from starlette.requests import Request
 
-from app.api.routes.execute import execute_extraction_from_file
 from app.api.routes import webhooks
+from app.api.routes.execute import execute_extraction_from_file
 from app.models.execution import (
     ExecutionMetadata,
     ExecutionRequest,
