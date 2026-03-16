@@ -15,12 +15,27 @@ from app.models.schema import MergeStrategy
 from app.models.skill import Skill, SkillExecutionResult
 from app.services.llm_client import LLMClientError, LLMClientFactory
 from app.services.skill_registry import get_registry
+from app.services.graph.state import SkillGraphState
 
 logger = logging.getLogger(__name__)
 
 
+def _state_get(state: SkillGraphState | Dict[str, Any], key: str, default: Any = None) -> Any:
+    """Read state values from either a dict or SkillGraphState instance."""
+    if isinstance(state, SkillGraphState):
+        return getattr(state, key, default)
+    return state.get(key, default)
+
+
+def _item_get(value: Any, key: str, default: Any = None) -> Any:
+    """Read values from either a dict or an object with attributes."""
+    if isinstance(value, dict):
+        return value.get(key, default)
+    return getattr(value, key, default)
+
+
 # ===== 1. Initialization Node =====
-async def initialize_execution(state: Dict[str, Any]) -> Dict[str, Any]:
+async def initialize_execution(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
     """Initialize execution by loading schema and planning execution.
 
     This node:
@@ -30,7 +45,7 @@ async def initialize_execution(state: Dict[str, Any]) -> Dict[str, Any]:
     - Sets up the execution plan
     """
     registry = get_registry()
-    schema = registry.get_schema_or_raise(state["schema_id"])
+    schema = registry.get_schema_or_raise(_state_get(state, "schema_id"))
 
     # Get active skills grouped by parallel_group
     skills_by_group = schema.get_skills_by_group()
@@ -57,7 +72,7 @@ async def initialize_execution(state: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ===== 2. Parallel Skill Execution Node =====
-async def execute_skill_group(state: Dict[str, Any]) -> Dict[str, Any]:
+async def execute_skill_group(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
     """Execute all skills in the current parallel group concurrently.
 
     This is the core execution node that maintains backward compatibility
@@ -65,22 +80,27 @@ async def execute_skill_group(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     registry = get_registry()
     settings = get_settings()
-    schema = registry.get_schema_or_raise(state["schema_id"])
+    schema = registry.get_schema_or_raise(_state_get(state, "schema_id"))
 
     # Get skills for current group
     skills_by_group = schema.get_skills_by_group()
-    current_skills = skills_by_group.get(state["current_group"], [])
+    current_group = _state_get(state, "current_group")
+    current_skills = skills_by_group.get(current_group, [])
 
-    logger.info(f"Executing group {state['current_group']} with {len(current_skills)} skills")
+    logger.info(f"Executing group {current_group} with {len(current_skills)} skills")
 
     # Determine default vendor and model
-    vendor = state.get("vendor") or settings.default_vendor
-    model = state.get("model")
+    vendor = _state_get(state, "vendor") or settings.default_vendor
+    model = _state_get(state, "model")
 
     # Execute skills in parallel using asyncio.gather
     tasks = [
         _execute_single_skill(
-            skill=skill, document=state["document"], vendor=vendor, model=model, settings=settings
+            skill=skill,
+            document=_state_get(state, "document"),
+            vendor=vendor,
+            model=model,
+            settings=settings,
         )
         for skill in current_skills
     ]
@@ -109,7 +129,9 @@ async def execute_skill_group(state: Dict[str, Any]) -> Dict[str, Any]:
         r.token_usage.get("total_tokens", 0) for r in skill_results if r.success and r.token_usage
     )
 
-    current_token_usage = state.get("token_usage", {})
+    current_token_usage = _state_get(state, "token_usage", {})
+    if hasattr(current_token_usage, "model_dump"):
+        current_token_usage = current_token_usage.model_dump()
     updated_token_usage = {
         "input_tokens": current_token_usage.get("input_tokens", 0)
         + sum(
@@ -128,12 +150,12 @@ async def execute_skill_group(state: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "skill_results": skill_results,
-        "completed_groups": [state["current_group"]],
+        "completed_groups": [current_group],
         "token_usage": updated_token_usage,
         "progress_events": [
             {
                 "type": "group_completed",
-                "group": state["current_group"],
+                "group": current_group,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "successful_results": len([r for r in skill_results if r.success]),
                 "total_results": len(skill_results),
@@ -240,19 +262,19 @@ def _get_default_model_for_vendor(vendor: str, settings: Any) -> str:
 
 
 # ===== 3. Merge Results Node =====
-async def merge_skill_results(state: Dict[str, Any]) -> Dict[str, Any]:
+async def merge_skill_results(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
     """Merge skill results according to schema strategy.
 
     Applies MERGE_DEEP, FIRST_WINS, or LAST_WINS strategy.
     """
     registry = get_registry()
-    schema = registry.get_schema_or_raise(state["schema_id"])
+    schema = registry.get_schema_or_raise(_state_get(state, "schema_id"))
     strategy = schema.config.post_processing.merge_strategy
 
-    merged = state.get("merged_data", {}).copy()
+    merged = _state_get(state, "merged_data", {}).copy()
 
     # Get only successful results with data
-    new_results = [r for r in state.get("skill_results", []) if r.success and r.data]
+    new_results = [r for r in _state_get(state, "skill_results", []) if r.success and r.data]
 
     for result in new_results:
         if strategy == MergeStrategy.FIRST_WINS:
@@ -296,14 +318,14 @@ def _deep_merge(base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ===== 4. Validation Node =====
-async def validate_results(state: Dict[str, Any]) -> Dict[str, Any]:
+async def validate_results(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
     """Validate merged results against schema rules.
 
     Runs Pydantic validation and custom validation rules.
     """
     registry = get_registry()
-    schema = registry.get_schema_or_raise(state["schema_id"])
-    merged_data = state.get("merged_data", {})
+    schema = registry.get_schema_or_raise(_state_get(state, "schema_id"))
+    merged_data = _state_get(state, "merged_data", {})
 
     errors: List[str] = []
     warnings: List[str] = []
@@ -464,13 +486,15 @@ def _get_nested_value(data: Dict[str, Any], path: str) -> Optional[Any]:
 
 
 # ===== 5. Human Review Node =====
-async def human_review_node(state: Dict[str, Any]) -> Dict[str, Any]:
+async def human_review_node(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
     """Pause execution for human review.
 
     This node creates an interrupt that pauses the graph until
     a human reviewer provides feedback via update_state().
     """
-    logger.info(f"Pausing execution {state['execution_id']} for human review")
+    logger.info(f"Pausing execution {_state_get(state, 'execution_id')} for human review")
+
+    validation_result = _state_get(state, "validation_result")
 
     return {
         "status": "paused",
@@ -479,16 +503,14 @@ async def human_review_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 "type": "human_review_requested",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "reason": "validation_failed",
-                "errors": state.get("validation_result", {}).get("errors", [])
-                if state.get("validation_result")
-                else [],
+                "errors": _item_get(validation_result, "errors", []) if validation_result else [],
             }
         ],
     }
 
 
 # ===== 6. Conditional Router Node =====
-async def route_next_action(state: Dict[str, Any]) -> Dict[str, Any]:
+async def route_next_action(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
     """Determine the next action based on current state.
 
     This enables conditional branching:
@@ -498,12 +520,12 @@ async def route_next_action(state: Dict[str, Any]) -> Dict[str, Any]:
     - Otherwise -> complete
     """
     registry = get_registry()
-    schema = registry.get_schema_or_raise(state["schema_id"])
+    schema = registry.get_schema_or_raise(_state_get(state, "schema_id"))
     skills_by_group = schema.get_skills_by_group()
     all_groups = sorted(skills_by_group.keys())
 
     # Check if more groups to execute
-    completed_groups = state.get("completed_groups", [])
+    completed_groups = _state_get(state, "completed_groups", [])
     remaining_groups = [g for g in all_groups if g not in completed_groups]
 
     if remaining_groups:
@@ -512,11 +534,11 @@ async def route_next_action(state: Dict[str, Any]) -> Dict[str, Any]:
         return {"next_action": next_action, "current_group": next_group}
 
     # All groups completed - check validation
-    validation_result = state.get("validation_result")
+    validation_result = _state_get(state, "validation_result")
     if validation_result:
-        if validation_result.status == "FAIL":
-            retry_count = state.get("retry_count", 0)
-            max_retries = state.get("max_retries", 2)
+        if _item_get(validation_result, "status") == "FAIL":
+            retry_count = _state_get(state, "retry_count", 0)
+            max_retries = _state_get(state, "max_retries", 2)
 
             if retry_count < max_retries:
                 return {
@@ -524,7 +546,7 @@ async def route_next_action(state: Dict[str, Any]) -> Dict[str, Any]:
                     "should_retry": True,
                     "retry_count": retry_count + 1,
                 }
-            elif state.get("human_review_required", False):
+            elif _state_get(state, "human_review_required", False):
                 return {"next_action": "human_review"}
 
     return {
@@ -535,28 +557,28 @@ async def route_next_action(state: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ===== 7. Checkpoint Node =====
-async def save_checkpoint(state: Dict[str, Any]) -> Dict[str, Any]:
+async def save_checkpoint(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
     """Save execution checkpoint for recovery.
 
     LangGraph handles this automatically with the checkpointer,
     but we can also add custom checkpoint logic here.
     """
-    logger.info(f"Checkpoint saved for execution {state['execution_id']}")
+    logger.info(f"Checkpoint saved for execution {_state_get(state, 'execution_id')}")
 
     return {
         "progress_events": [
             {
                 "type": "checkpoint_saved",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "current_group": state.get("current_group"),
-                "completed_groups": state.get("completed_groups", []),
+                "current_group": _state_get(state, "current_group"),
+                "completed_groups": _state_get(state, "completed_groups", []),
             }
         ]
     }
 
 
 # ===== 8. Dynamic Skill Selection Node (Optional) =====
-async def analyze_document_and_select_skills(state: Dict[str, Any]) -> Dict[str, Any]:
+async def analyze_document_and_select_skills(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
     """Analyze document to dynamically select which skills to run.
 
     This is a new capability enabled by LangGraph - we can use an LLM
@@ -564,7 +586,7 @@ async def analyze_document_and_select_skills(state: Dict[str, Any]) -> Dict[str,
     """
     settings = get_settings()
     registry = get_registry()
-    schema = registry.get_schema_or_raise(state["schema_id"])
+    schema = registry.get_schema_or_raise(_state_get(state, "schema_id"))
 
     # Use a fast model for document analysis
     client = LLMClientFactory.get_client("gemini", "gemini-2.0-flash-exp", settings)
@@ -579,7 +601,7 @@ Available skills:
 {skill_descriptions}
 
 Document preview (first 1000 chars):
-{state["document"][:1000]}
+{_state_get(state, "document")[:1000]}
 
 Return a JSON object with:
 {{

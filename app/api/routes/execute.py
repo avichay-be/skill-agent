@@ -106,7 +106,6 @@ async def execute_extraction_from_file(
     ] = True,
     _api_key: ApiKeyDep = None,  # type: ignore[assignment]
     registry: Annotated[Optional[SkillRegistry], Depends(get_registry)] = None,
-    executor: Annotated[Optional[SkillExecutor], Depends(get_executor)] = None,
 ) -> ExecutionResponse:
     """Execute document extraction from an uploaded file.
 
@@ -198,20 +197,18 @@ async def execute_extraction_from_file(
         save_to_cosmos=save_to_cosmos,
     )
 
-    # Ensure executor is not None
-    if executor is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Executor not available",
-        )
-
     # Execute
     logger.info(
         f"Starting extraction from file '{file.filename}' ({file.content_type}), "
         f"skill '{skill_name}', document length: {len(document_text)} chars"
     )
 
-    response = await executor.execute(exec_request)
+    if settings.use_langgraph:
+        graph_executor = get_graph_executor()
+        response = await graph_executor.execute(exec_request)
+    else:
+        executor = get_executor()
+        response = await executor.execute(exec_request)
 
     # Log result
     if response.status == ExecutionStatus.COMPLETED:
