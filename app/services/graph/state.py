@@ -32,7 +32,9 @@ class SkillGraphState(BaseModel):
 
     # ===== Execution Context =====
     current_group: int = Field(default=1, description="Current parallel group being executed")
-    completed_groups: List[int] = Field(default_factory=list, description="Groups that completed")
+    completed_groups: Annotated[List[int], add] = Field(
+        default_factory=list, description="Groups that completed"
+    )
     pending_skills: List[str] = Field(
         default_factory=list, description="Skills queued for execution"
     )
