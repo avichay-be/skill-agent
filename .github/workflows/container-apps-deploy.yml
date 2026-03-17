@@ -1,10 +1,11 @@
 name: Deploy to Azure Container Apps
 
+# NOTE: Deploy disabled — Azure service principal not available (DevOps issue).
+# Re-enable push trigger when resolved.
 on:
-  push:
-    branches:
-      - main
-      - feature/langgraph-migration
+  # push:
+  #   branches:
+  #     - main
   workflow_dispatch:
     inputs:
       environment:
