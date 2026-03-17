@@ -90,7 +90,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    environment: production
     env:
       BOOTSTRAP_INFRA: ${{ github.event_name == 'workflow_dispatch' && (inputs.bootstrap_infra && 'true' || 'false') || 'false' }}
       IMAGE_TAG: sha-${{ github.sha }}
