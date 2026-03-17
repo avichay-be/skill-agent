@@ -189,11 +189,18 @@ jobs:
 
           echo "Waiting for application to be ready..."
           for i in {1..30}; do
-            if curl -f -s "https://$APP_URL/health" > /dev/null; then
+            REVISION_HEALTH=$(az containerapp revision list \
+              --name ${{ env.AZURE_CONTAINER_APP_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --query "[?active].healthState | [0]" -o tsv)
+
+            STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://$APP_URL/health" || true)
+
+            if [ "$REVISION_HEALTH" = "Healthy" ] && { [ "$STATUS_CODE" = "200" ] || [ "$STATUS_CODE" = "401" ]; }; then
               echo "Application is healthy!"
               exit 0
             fi
-            echo "Attempt $i: Application not ready yet, waiting..."
+            echo "Attempt $i: revision health=$REVISION_HEALTH, status=$STATUS_CODE. Waiting..."
             sleep 10
           done
 
