@@ -21,6 +21,24 @@ say() {
     echo "[ensure-container-apps] $*"
 }
 
+ensure_provider() {
+    local namespace="$1"
+    local state
+
+    state="$(az provider show --namespace "$namespace" --query registrationState -o tsv 2>/dev/null || true)"
+    if [[ "$state" == "Registered" ]]; then
+        say "Provider '$namespace' is already registered"
+        return 0
+    fi
+
+    if az provider register --namespace "$namespace" --wait 1>/dev/null 2>&1; then
+        say "Registered provider '$namespace'"
+        return 0
+    fi
+
+    say "Could not register provider '$namespace'; continuing with existing subscription state"
+}
+
 require_existing() {
     local resource_name="$1"
     local guidance="$2"
@@ -39,9 +57,9 @@ write_output() {
 }
 
 az extension add --name containerapp --upgrade --yes 1>/dev/null
-az provider register --namespace Microsoft.App --wait 1>/dev/null
-az provider register --namespace Microsoft.ContainerRegistry --wait 1>/dev/null
-az provider register --namespace Microsoft.OperationalInsights --wait 1>/dev/null
+ensure_provider Microsoft.App
+ensure_provider Microsoft.ContainerRegistry
+ensure_provider Microsoft.OperationalInsights
 
 say "Ensuring resource group '$RESOURCE_GROUP'"
 az group create --name "$RESOURCE_GROUP" --location "$LOCATION" 1>/dev/null
