@@ -26,8 +26,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment:
-      name: ${{ github.event.inputs.environment || 'production' }}
     permissions:
       id-token: write
       contents: read
@@ -85,9 +83,6 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: ${{ github.event.inputs.environment || 'production' }}
-      url: ${{ steps.deploy.outputs.url }}
     permissions:
       id-token: write
       contents: read
