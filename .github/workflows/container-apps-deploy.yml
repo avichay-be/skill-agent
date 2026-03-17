@@ -53,11 +53,7 @@ jobs:
           echo "acr_login_server=$ACR_LOGIN_SERVER" >> $GITHUB_OUTPUT
 
       - name: Login to Azure Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ steps.acr-creds.outputs.acr_login_server }}
-          username: ${{ steps.acr-creds.outputs.acr_name }}
-          password: ${{ secrets.ACR_PASSWORD }}
+        run: az acr login --name ${{ steps.acr-creds.outputs.acr_name }}
 
       - name: Extract metadata for Docker
         id: meta
