@@ -31,7 +31,7 @@ ensure_provider() {
         return 0
     fi
 
-    if az provider register --namespace "$namespace" --wait 1>/dev/null 2>&1; then
+    if az provider register --namespace "$namespace" 1>/dev/null 2>&1; then
         say "Registered provider '$namespace'"
         return 0
     fi
@@ -57,9 +57,14 @@ write_output() {
 }
 
 az extension add --name containerapp --upgrade --yes 1>/dev/null
-ensure_provider Microsoft.App
-ensure_provider Microsoft.ContainerRegistry
-ensure_provider Microsoft.OperationalInsights
+
+if [[ "$BOOTSTRAP_INFRA" == "true" ]]; then
+    ensure_provider Microsoft.App
+    ensure_provider Microsoft.ContainerRegistry
+    ensure_provider Microsoft.OperationalInsights
+else
+    say "Skipping provider registration because BOOTSTRAP_INFRA=false"
+fi
 
 say "Ensuring resource group '$RESOURCE_GROUP'"
 az group create --name "$RESOURCE_GROUP" --location "$LOCATION" 1>/dev/null
