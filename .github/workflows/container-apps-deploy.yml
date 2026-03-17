@@ -146,6 +146,22 @@ jobs:
             "LOG_LEVEL=INFO"
           )
 
+          ACR_USERNAME=$(az acr credential show \
+            --name ${{ steps.acr-creds.outputs.acr_name }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query username -o tsv)
+          ACR_PASSWORD=$(az acr credential show \
+            --name ${{ steps.acr-creds.outputs.acr_name }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query passwords[0].value -o tsv)
+
+          az containerapp registry set \
+            --name ${{ env.AZURE_CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --server ${{ steps.acr-creds.outputs.acr_login_server }} \
+            --username "$ACR_USERNAME" \
+            --password "$ACR_PASSWORD"
+
           # Update container app with new image
           az containerapp update \
             --name ${{ env.AZURE_CONTAINER_APP_NAME }} \
