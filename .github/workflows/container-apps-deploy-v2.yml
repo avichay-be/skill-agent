@@ -225,7 +225,7 @@ jobs:
             REVISION_HEALTH=$(az containerapp revision list \
               --name "$AZURE_CONTAINER_APP_NAME" \
               --resource-group "$RESOURCE_GROUP" \
-              --query "[?active].healthState | [0]" -o tsv)
+              --query "[?properties.active].properties.healthState | [0]" -o tsv)
 
             STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://$APP_URL/health" || true)
 
