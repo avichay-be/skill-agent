@@ -1,0 +1,254 @@
+name: Deploy to Azure Container Apps v2 (Parallel)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/container-apps-deploy-v2.yml"
+      - "app/**"
+      - "Dockerfile"
+      - "infra/**"
+      - "pyproject.toml"
+      - "requirements.txt"
+      - "scripts/ensure-container-apps.sh"
+      - "skills-library/**"
+      - "startup.sh"
+      - "workflows/**"
+  workflow_dispatch:
+    inputs:
+      bootstrap_infra:
+        description: "Create missing Azure resources if needed"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: container-apps-v2-production
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.11"
+  LOCATION: ${{ vars.AZURE_LOCATION || 'eastus' }}
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'skill-agent-rg' }}
+  AZURE_CONTAINER_APP_NAME: ${{ vars.AZURE_CONTAINER_APP_NAME || 'skill-agent-app' }}
+  CONTAINERAPPS_ENVIRONMENT_NAME: ${{ vars.CONTAINERAPPS_ENVIRONMENT_NAME || 'skill-agent-env' }}
+  CONTAINER_REGISTRY_NAME: ${{ vars.CONTAINER_REGISTRY_NAME || 'skillagentprodacr' }}
+  LOG_ANALYTICS_WORKSPACE_NAME: ${{ vars.LOG_ANALYTICS_WORKSPACE_NAME || 'skill-agent-logs' }}
+  IMAGE_NAME: ${{ vars.IMAGE_NAME || 'skill-agent' }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run Ruff lint
+        run: ruff check .
+
+      - name: Run Ruff format check
+        run: ruff format --check .
+
+      - name: Run MyPy
+        run: mypy app
+
+      - name: Run tests
+        run: pytest --cov=app --cov-report=xml --cov-fail-under=45
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: false
+          tags: skill-agent:deploy-smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs:
+      - validate
+    permissions:
+      id-token: write
+      contents: read
+    environment: production
+    env:
+      BOOTSTRAP_INFRA: ${{ github.event_name == 'workflow_dispatch' && (inputs.bootstrap_infra && 'true' || 'false') || 'false' }}
+      IMAGE_TAG: sha-${{ github.sha }}
+      GITHUB_REPO_URL: ${{ secrets.GITHUB_REPO_URL || format('https://github.com/{0}.git', github.repository) }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.SKILLAGENTAPP_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.SKILLAGENTAPP_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.SKILLAGENTAPP_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure Azure prerequisites
+        id: infra
+        run: ./scripts/ensure-container-apps.sh
+        env:
+          RESOURCE_GROUP: ${{ env.RESOURCE_GROUP }}
+          LOCATION: ${{ env.LOCATION }}
+          AZURE_CONTAINER_APP_NAME: ${{ env.AZURE_CONTAINER_APP_NAME }}
+          CONTAINERAPPS_ENVIRONMENT_NAME: ${{ env.CONTAINERAPPS_ENVIRONMENT_NAME }}
+          CONTAINER_REGISTRY_NAME: ${{ env.CONTAINER_REGISTRY_NAME }}
+          LOG_ANALYTICS_WORKSPACE_NAME: ${{ env.LOG_ANALYTICS_WORKSPACE_NAME }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          BOOTSTRAP_INFRA: ${{ env.BOOTSTRAP_INFRA }}
+          ENSURE_APP: "false"
+
+      - name: Login to Azure Container Registry
+        run: az acr login --name "${{ steps.infra.outputs.acr_name }}"
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.infra.outputs.acr_login_server }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ${{ steps.infra.outputs.acr_login_server }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Ensure Container App exists
+        id: app
+        run: ./scripts/ensure-container-apps.sh
+        env:
+          RESOURCE_GROUP: ${{ env.RESOURCE_GROUP }}
+          LOCATION: ${{ env.LOCATION }}
+          AZURE_CONTAINER_APP_NAME: ${{ env.AZURE_CONTAINER_APP_NAME }}
+          CONTAINERAPPS_ENVIRONMENT_NAME: ${{ env.CONTAINERAPPS_ENVIRONMENT_NAME }}
+          CONTAINER_REGISTRY_NAME: ${{ env.CONTAINER_REGISTRY_NAME }}
+          LOG_ANALYTICS_WORKSPACE_NAME: ${{ env.LOG_ANALYTICS_WORKSPACE_NAME }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          BOOTSTRAP_INFRA: ${{ env.BOOTSTRAP_INFRA }}
+          ENSURE_APP: "true"
+
+      - name: Sync container secrets and env vars
+        run: |
+          SECRET_ARGS=()
+          ENV_ARGS=(
+            "APP_NAME=Skill Agent"
+            "ENVIRONMENT=production"
+            "GITHUB_BRANCH=main"
+            "GITHUB_REPO_URL=$GITHUB_REPO_URL"
+            "LOG_LEVEL=INFO"
+            "SKILLS_BASE_PATH=skills-library"
+          )
+
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            SECRET_ARGS+=("anthropic-api-key=$ANTHROPIC_API_KEY")
+            ENV_ARGS+=("ANTHROPIC_API_KEY=secretref:anthropic-api-key")
+          fi
+
+          if [ -n "$OPENAI_API_KEY" ]; then
+            SECRET_ARGS+=("openai-api-key=$OPENAI_API_KEY")
+            ENV_ARGS+=("OPENAI_API_KEY=secretref:openai-api-key")
+          fi
+
+          if [ -n "$GOOGLE_API_KEY" ]; then
+            SECRET_ARGS+=("google-api-key=$GOOGLE_API_KEY")
+            ENV_ARGS+=("GOOGLE_API_KEY=secretref:google-api-key")
+          fi
+
+          if [ ${#SECRET_ARGS[@]} -gt 0 ]; then
+            az containerapp secret set \
+              --name "$AZURE_CONTAINER_APP_NAME" \
+              --resource-group "$RESOURCE_GROUP" \
+              --secrets "${SECRET_ARGS[@]}"
+          fi
+
+          ACR_USERNAME=$(az acr credential show \
+            --name "$CONTAINER_REGISTRY_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query username -o tsv)
+          ACR_PASSWORD=$(az acr credential show \
+            --name "$CONTAINER_REGISTRY_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query passwords[0].value -o tsv)
+
+          az containerapp registry set \
+            --name "$AZURE_CONTAINER_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --server "${{ steps.infra.outputs.acr_login_server }}" \
+            --username "$ACR_USERNAME" \
+            --password "$ACR_PASSWORD"
+
+          az containerapp update \
+            --name "$AZURE_CONTAINER_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "${{ steps.infra.outputs.acr_login_server }}/${IMAGE_NAME}:${IMAGE_TAG}" \
+            --set-env-vars "${ENV_ARGS[@]}"
+
+      - name: Verify deployment
+        run: |
+          APP_URL=$(az containerapp show \
+            --name "$AZURE_CONTAINER_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn -o tsv)
+
+          echo "Waiting for application to become healthy..."
+          for i in {1..30}; do
+            REVISION_HEALTH=$(az containerapp revision list \
+              --name "$AZURE_CONTAINER_APP_NAME" \
+              --resource-group "$RESOURCE_GROUP" \
+              --query "[?active].healthState | [0]" -o tsv)
+
+            STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://$APP_URL/health" || true)
+
+            if [ "$REVISION_HEALTH" = "Healthy" ] && { [ "$STATUS_CODE" = "200" ] || [ "$STATUS_CODE" = "401" ]; }; then
+              echo "Application is healthy at https://$APP_URL"
+              {
+                echo "### Deployment Successful"
+                echo ""
+                echo "- Application URL: https://$APP_URL"
+                echo "- Revision health: $REVISION_HEALTH"
+                echo "- Health endpoint status: $STATUS_CODE"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            echo "Attempt $i: revision health=$REVISION_HEALTH, status=$STATUS_CODE"
+            sleep 10
+          done
+
+          echo "::error::Application did not become healthy in time"
+          exit 1
+
+      - name: Logout from Azure
+        if: always()
+        run: az logout
