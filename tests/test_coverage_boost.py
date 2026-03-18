@@ -10,7 +10,6 @@ Targets:
 """
 
 import base64
-import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -776,7 +775,6 @@ class TestGraphExecutor:
 
     async def test_execute_calls_state_to_response_on_success(self) -> None:
         from app.models.execution import ExecutionRequest, ExecutionStatus
-        from app.services.skill_registry import SkillRegistry
 
         executor = self._make_executor()
 
@@ -1481,7 +1479,6 @@ class TestGraphNodeFunctions:
         from app.models.schema import MergeStrategy
         from app.models.skill import SkillExecutionResult
         from app.services.graph.nodes import merge_skill_results
-        from app.services.graph.state import SkillGraphState
 
         mock_registry = MagicMock()
         mock_schema = MagicMock()
