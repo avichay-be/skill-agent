@@ -5,9 +5,12 @@ This replaces the original SkillExecutor with LangGraph orchestration.
 """
 
 import logging
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Dict, Optional
 from uuid import uuid4
+
+from langgraph.checkpoint.sqlite import SqliteSaver
 
 from app.core.config import get_settings
 from app.models.execution import (
@@ -38,10 +41,15 @@ class GraphExecutor:
     def __init__(self, settings: Any = None) -> None:
         self.settings = settings or get_settings()
 
-        # Create the compiled graph
-        self.graph = create_skill_execution_graph(
-            checkpointer_type="sqlite", checkpoint_db_path="./data/checkpoints.db"
-        )
+    def _graph_context(self) -> Any:
+        """Create a compiled graph with a live checkpoint backend."""
+        backend = self.settings.checkpoint_backend
+        checkpoint_db_path = self.settings.checkpoint_db_path
+
+        if backend == "sqlite":
+            return SqliteSaver.from_conn_string(checkpoint_db_path)
+
+        return nullcontext(None)
 
     async def execute(self, request: ExecutionRequest) -> "ExecutionResponse":
         """Execute extraction using LangGraph.
@@ -75,8 +83,13 @@ class GraphExecutor:
         try:
             # Run the graph
             config = {"configurable": {"thread_id": execution_id}}
-
-            final_state = await self.graph.ainvoke(initial_state.model_dump(), config=config)
+            with self._graph_context() as checkpointer:
+                graph = create_skill_execution_graph(
+                    checkpointer_type=self.settings.checkpoint_backend,
+                    checkpoint_db_path=self.settings.checkpoint_db_path,
+                    checkpointer=checkpointer,
+                )
+                final_state = await graph.ainvoke(initial_state.model_dump(), config=config)
 
             # Convert graph state to ExecutionResponse
             return self._state_to_response(final_state, request.skill_name)
@@ -117,20 +130,27 @@ class GraphExecutor:
 
         config = {"configurable": {"thread_id": execution_id}}
 
-        # Stream updates from the graph
-        async for event in self.graph.astream(initial_state.model_dump(), config=config):
-            # Each event contains the node name and updated state
-            node_name = list(event.keys())[0]
-            node_state = event[node_name]
+        with self._graph_context() as checkpointer:
+            graph = create_skill_execution_graph(
+                checkpointer_type=self.settings.checkpoint_backend,
+                checkpoint_db_path=self.settings.checkpoint_db_path,
+                checkpointer=checkpointer,
+            )
 
-            # Yield progress event
-            yield {
-                "type": "node_completed",
-                "node": node_name,
-                "progress": node_state.get("progress_events", []),
-                "status": node_state.get("status", "running"),
-                "execution_id": execution_id,
-            }
+            # Stream updates from the graph
+            async for event in graph.astream(initial_state.model_dump(), config=config):
+                # Each event contains the node name and updated state
+                node_name = list(event.keys())[0]
+                node_state = event[node_name]
+
+                # Yield progress event
+                yield {
+                    "type": "node_completed",
+                    "node": node_name,
+                    "progress": node_state.get("progress_events", []),
+                    "status": node_state.get("status", "running"),
+                    "execution_id": execution_id,
+                }
 
     async def resume_execution(
         self, execution_id: str, human_feedback: Optional[Dict[str, Any]] = None
@@ -149,13 +169,20 @@ class GraphExecutor:
         """
         config = {"configurable": {"thread_id": execution_id}}
 
-        # Update state with human feedback if provided
-        if human_feedback:
-            update = {"human_feedback": human_feedback, "human_review_required": False}
-            await self.graph.aupdate_state(config, update)
+        with self._graph_context() as checkpointer:
+            graph = create_skill_execution_graph(
+                checkpointer_type=self.settings.checkpoint_backend,
+                checkpoint_db_path=self.settings.checkpoint_db_path,
+                checkpointer=checkpointer,
+            )
 
-        # Resume execution
-        final_state = await self.graph.ainvoke(None, config=config)
+            # Update state with human feedback if provided
+            if human_feedback:
+                update = {"human_feedback": human_feedback, "human_review_required": False}
+                await graph.aupdate_state(config, update)
+
+            # Resume execution
+            final_state = await graph.ainvoke(None, config=config)
 
         # Convert to response
         schema_id = final_state.get("schema_id", "unknown")

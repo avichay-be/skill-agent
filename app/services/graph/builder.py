@@ -17,6 +17,7 @@ from app.services.graph.state import SkillGraphState
 def create_skill_execution_graph(
     checkpointer_type: Literal["memory", "sqlite"] = "sqlite",
     checkpoint_db_path: str = "./data/checkpoints.db",
+    checkpointer: Any | None = None,
 ) -> Any:
     """Create the main skill execution StateGraph.
 
@@ -78,17 +79,18 @@ def create_skill_execution_graph(
     workflow.add_edge("human_review", "validate")
 
     # ===== Configure checkpointer =====
-    checkpointer: Any
-    if checkpointer_type == "memory":
-        checkpointer = MemorySaver()
-    elif checkpointer_type == "sqlite":
-        checkpointer = SqliteSaver.from_conn_string(checkpoint_db_path)
-    else:
-        checkpointer = MemorySaver()
+    active_checkpointer = checkpointer
+    if active_checkpointer is None:
+        if checkpointer_type == "memory":
+            active_checkpointer = MemorySaver()
+        elif checkpointer_type == "sqlite":
+            active_checkpointer = SqliteSaver.from_conn_string(checkpoint_db_path)
+        else:
+            active_checkpointer = MemorySaver()
 
     # Compile the graph
     compiled_graph = workflow.compile(
-        checkpointer=checkpointer,
+        checkpointer=active_checkpointer,
         interrupt_before=["human_review"],  # Pause before human review
     )
 
@@ -127,6 +129,7 @@ def _route_decision(state: SkillGraphState) -> str:
 
 def create_dynamic_selection_graph(
     checkpointer_type: Literal["memory", "sqlite"] = "memory",
+    checkpointer: Any | None = None,
 ) -> Any:
     """Create a graph variant with dynamic skill selection.
 
@@ -163,10 +166,11 @@ def create_dynamic_selection_graph(
     workflow.add_edge("validate", "router")
 
     # Configure checkpointer
-    checkpointer: Any
-    if checkpointer_type == "memory":
-        checkpointer = MemorySaver()
-    else:
-        checkpointer = SqliteSaver.from_conn_string("./data/checkpoints_dynamic.db")
+    active_checkpointer = checkpointer
+    if active_checkpointer is None:
+        if checkpointer_type == "memory":
+            active_checkpointer = MemorySaver()
+        else:
+            active_checkpointer = SqliteSaver.from_conn_string("./data/checkpoints_dynamic.db")
 
-    return workflow.compile(checkpointer=checkpointer)
+    return workflow.compile(checkpointer=active_checkpointer)
