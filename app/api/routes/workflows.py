@@ -1,7 +1,7 @@
 """Workflow API routes."""
 
 import logging
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 
@@ -54,11 +54,13 @@ def _validate_workflow_request(
                 detail="Dynamic workflows require at least 2 schema_ids",
             )
 
-        missing = [schema_id for schema_id in schema_ids if not registry.get_schema(schema_id)]
-        if missing:
+        missing_schema_ids = [
+            schema_id for schema_id in schema_ids if not registry.get_schema(schema_id)
+        ]
+        if missing_schema_ids:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Workflow references missing schemas: {missing}",
+                detail=f"Workflow references missing schemas: {missing_schema_ids}",
             )
         return
 
@@ -210,10 +212,13 @@ async def execute_workflow_from_file(
         save_to_cosmos=save_to_cosmos,
     )
 
-    return await execute_workflow(
+    return cast(
+        WorkflowExecutionResponse,
+        await execute_workflow(
         request=request,
         workflow_request=workflow_request,
         _api_key=_api_key,
         registry=registry,
         executor=executor,
+        ),
     )
