@@ -215,10 +215,10 @@ async def execute_workflow_from_file(
     return cast(
         WorkflowExecutionResponse,
         await execute_workflow(
-        request=request,
-        workflow_request=workflow_request,
-        _api_key=_api_key,
-        registry=registry,
-        executor=executor,
+            request=request,
+            workflow_request=workflow_request,
+            _api_key=_api_key,
+            registry=registry,
+            executor=executor,
         ),
     )
