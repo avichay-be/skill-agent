@@ -60,6 +60,17 @@ class TestWorkflowModels:
         assert req.vendor is None
         assert req.model is None
         assert req.options == {}
+        assert req.schema_ids is None
+
+    def test_workflow_execution_request_supports_dynamic_schema_sequence(self) -> None:
+        req = WorkflowExecutionRequest(
+            document="doc",
+            schema_ids=["schema_a", "schema_b"],
+            workflow_name="Dynamic Workflow",
+        )
+        assert req.workflow_id is None
+        assert req.schema_ids == ["schema_a", "schema_b"]
+        assert req.workflow_name == "Dynamic Workflow"
 
     def test_workflow_list_response(self) -> None:
         resp = WorkflowListResponse(workflows=[], total=0)
@@ -118,6 +129,46 @@ class TestGitLoaderWorkflows:
             assert path.exists()
         finally:
             get_settings.cache_clear()
+
+    def test_load_workflow_config_from_cloned_repo_path(self, temp_skills_dir: Path) -> None:
+        from unittest.mock import MagicMock
+
+        from app.services.git_loader import GitLoader
+
+        settings = MagicMock()
+        settings.workflows_path = "workflows"
+        settings.local_skills_path = None
+        settings.github_repo_url = ""
+        settings.environment = "test"
+
+        loader = GitLoader(settings)
+        loader._local_path = temp_skills_dir
+        loader._is_direct_skills_path = False
+
+        config, path = loader.load_workflow_config("test_workflow")
+        assert config.workflow_id == "test_workflow"
+        assert path == temp_skills_dir / "workflows" / "test_workflow.json"
+
+    def test_load_workflow_config_from_sibling_dir_of_direct_skills_path(
+        self, temp_skills_dir: Path
+    ) -> None:
+        from unittest.mock import MagicMock
+
+        from app.services.git_loader import GitLoader
+
+        settings = MagicMock()
+        settings.workflows_path = "workflows"
+        settings.local_skills_path = None
+        settings.github_repo_url = ""
+        settings.environment = "test"
+
+        loader = GitLoader(settings)
+        loader._local_path = temp_skills_dir / "test_schema"
+        loader._is_direct_skills_path = True
+
+        config, path = loader.load_workflow_config("test_workflow")
+        assert config.workflow_id == "test_workflow"
+        assert path == temp_skills_dir / "workflows" / "test_workflow.json"
 
     def test_load_workflow_config_not_found(self, temp_skills_dir: Path) -> None:
         from app.core.config import get_settings
@@ -413,6 +464,65 @@ class TestWorkflowExecutor:
 
         with pytest.raises(WorkflowExecutorError, match="not found"):
             await executor.execute(WorkflowExecutionRequest(document="doc", workflow_id="missing"))
+
+    @pytest.mark.asyncio
+    async def test_dynamic_schema_sequence_builds_ephemeral_workflow(self) -> None:
+        """A request can compose two or more schemas without a saved workflow file."""
+        from app.services.workflow_executor import WorkflowExecutor
+
+        registry = MagicMock()
+        registry.current_commit = "abc123"
+        registry.get_schema.return_value = MagicMock()
+
+        received_docs: list[str] = []
+
+        async def mock_execute(req: Any) -> ExecutionResponse:
+            received_docs.append(req.document)
+            return _make_exec_response(
+                skill_name=req.skill_name,
+                data={"output": f"data_from_{req.skill_name}"},
+            )
+
+        mock_executor = AsyncMock()
+        mock_executor.execute = mock_execute
+
+        executor = WorkflowExecutor(registry=registry)
+
+        with patch(
+            "app.services.graph_executor.get_graph_executor",
+            return_value=mock_executor,
+        ):
+            response = await executor.execute(
+                WorkflowExecutionRequest(
+                    document="original doc",
+                    schema_ids=["schema_a", "schema_b"],
+                    workflow_name="Dynamic Chain",
+                )
+            )
+
+        assert response.status == WorkflowExecutionStatus.COMPLETED
+        assert response.workflow_id == "dynamic--schema-a--schema-b"
+        assert response.workflow_name == "Dynamic Chain"
+        assert len(response.step_results) == 2
+        assert received_docs[0] == "original doc"
+        assert json.loads(received_docs[1])["output"] == "data_from_schema_a"
+        registry.get_workflow.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_dynamic_schema_sequence_requires_two_schemas(self) -> None:
+        """Dynamic workflows reject single-schema sequences."""
+        from app.services.workflow_executor import WorkflowExecutor, WorkflowExecutorError
+
+        registry = MagicMock()
+        executor = WorkflowExecutor(registry=registry)
+
+        with pytest.raises(WorkflowExecutorError, match="at least 2 schema_ids"):
+            await executor.execute(
+                WorkflowExecutionRequest(
+                    document="doc",
+                    schema_ids=["schema_a"],
+                )
+            )
 
 
 # ── API endpoint tests ─────────────────────────────────────────────────

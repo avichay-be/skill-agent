@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import time
 from datetime import datetime, timezone
 from typing import Optional
@@ -10,11 +11,14 @@ from uuid import uuid4
 from app.core.config import get_settings
 from app.models.execution import ExecutionRequest, ExecutionResponse, ExecutionStatus, TokenUsage
 from app.models.workflow import (
+    LoadedWorkflow,
     OnFailure,
+    WorkflowConfig,
     WorkflowExecutionMetadata,
     WorkflowExecutionRequest,
     WorkflowExecutionResponse,
     WorkflowExecutionStatus,
+    WorkflowStepConfig,
     WorkflowStepResult,
 )
 from app.services.skill_registry import SkillRegistry, get_registry
@@ -32,6 +36,68 @@ class WorkflowExecutor:
     def __init__(self, registry: Optional[SkillRegistry] = None) -> None:
         self.registry = registry or get_registry()
 
+    def resolve_workflow(self, request: WorkflowExecutionRequest) -> LoadedWorkflow:
+        """Resolve a saved or ephemeral workflow from the request."""
+        if request.workflow_id and request.schema_ids:
+            raise WorkflowExecutorError("Provide either workflow_id or schema_ids, not both")
+
+        if request.schema_ids:
+            return self._build_composed_workflow(request)
+
+        if not request.workflow_id:
+            raise WorkflowExecutorError("Either workflow_id or schema_ids must be provided")
+
+        loaded_workflow = self.registry.get_workflow(request.workflow_id)
+        if not loaded_workflow:
+            raise WorkflowExecutorError(f"Workflow '{request.workflow_id}' not found")
+        return loaded_workflow
+
+    def _build_composed_workflow(self, request: WorkflowExecutionRequest) -> LoadedWorkflow:
+        """Build an ephemeral workflow from a list of schema IDs."""
+        schema_ids = request.schema_ids or []
+        if len(schema_ids) < 2:
+            raise WorkflowExecutorError("Dynamic workflows require at least 2 schema_ids")
+
+        missing = [schema_id for schema_id in schema_ids if not self.registry.get_schema(schema_id)]
+        if missing:
+            raise WorkflowExecutorError(f"Workflow references missing schemas: {missing}")
+
+        workflow_id = self._build_composed_workflow_id(schema_ids)
+        workflow_name = request.workflow_name or f"Composed workflow: {' -> '.join(schema_ids)}"
+        workflow_description = (
+            request.workflow_description
+            or "Ephemeral workflow generated from the requested schema sequence."
+        )
+        steps = [
+            WorkflowStepConfig(
+                step_id=f"step_{idx + 1}_{self._slugify(schema_id)}",
+                schema_id=schema_id,
+                name=f"Run {schema_id}",
+            )
+            for idx, schema_id in enumerate(schema_ids)
+        ]
+
+        return LoadedWorkflow(
+            config=WorkflowConfig(
+                workflow_id=workflow_id,
+                version="dynamic",
+                name=workflow_name,
+                description=workflow_description,
+                steps=steps,
+            ),
+            git_commit=self.registry.current_commit or "dynamic",
+            source_path="dynamic:composed",
+        )
+
+    def _build_composed_workflow_id(self, schema_ids: list[str]) -> str:
+        """Build a stable identifier for an ephemeral composed workflow."""
+        return "dynamic--" + "--".join(self._slugify(schema_id) for schema_id in schema_ids)
+
+    def _slugify(self, value: str) -> str:
+        """Convert identifiers into workflow-safe slugs."""
+        slug = re.sub(r"[^a-zA-Z0-9]+", "-", value).strip("-").lower()
+        return slug or "schema"
+
     async def execute(self, request: WorkflowExecutionRequest) -> WorkflowExecutionResponse:
         """Execute a workflow by running each step sequentially.
 
@@ -46,10 +112,7 @@ class WorkflowExecutor:
         """
         settings = get_settings()
 
-        loaded_workflow = self.registry.get_workflow(request.workflow_id)
-        if not loaded_workflow:
-            raise WorkflowExecutorError(f"Workflow '{request.workflow_id}' not found")
-
+        loaded_workflow = self.resolve_workflow(request)
         config = loaded_workflow.config
         execution_id = str(uuid4())
         start_time = time.monotonic()

@@ -121,7 +121,7 @@ class TestGitLoader:
 
     def test_no_config_error(self):
         """Test error when no Git URL or local path configured."""
-        from unittest.mock import MagicMock
+        from unittest.mock import MagicMock, patch
 
         settings = MagicMock()
         settings.github_repo_url = ""
@@ -129,5 +129,6 @@ class TestGitLoader:
 
         loader = GitLoader(settings)
 
-        with pytest.raises(GitLoaderError, match="No GitHub repo URL"):
-            loader.clone_or_pull()
+        with patch.object(loader, "_get_local_skills_path", return_value=None):
+            with pytest.raises(GitLoaderError, match="No GitHub repo URL"):
+                loader.clone_or_pull()

@@ -52,7 +52,22 @@ class WorkflowExecutionRequest(BaseModel):
     """Request to execute a workflow."""
 
     document: str = Field(..., description="Document content to process")
-    workflow_id: str = Field(..., description="Workflow ID to execute")
+    workflow_id: Optional[str] = Field(
+        default=None,
+        description="Saved workflow ID to execute",
+    )
+    schema_ids: Optional[List[str]] = Field(
+        default=None,
+        description="Ordered schema IDs to compose into an ephemeral workflow",
+    )
+    workflow_name: Optional[str] = Field(
+        default=None,
+        description="Optional display name for an ephemeral composed workflow",
+    )
+    workflow_description: Optional[str] = Field(
+        default=None,
+        description="Optional description for an ephemeral composed workflow",
+    )
     vendor: Optional[str] = Field(default=None, description="Override default LLM vendor")
     model: Optional[str] = Field(default=None, description="Override default model")
     options: Dict[str, Any] = Field(
