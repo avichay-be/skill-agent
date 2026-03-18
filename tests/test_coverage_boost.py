@@ -62,13 +62,13 @@ class TestLLMClientBaseHelpers:
 
     def test_extract_json_from_text_code_block(self) -> None:
         client = self._make_client()
-        text = "```json\n{\"answer\": 42}\n```"
+        text = '```json\n{"answer": 42}\n```'
         result = client._extract_json_from_text(text)
         assert result == {"answer": 42}
 
     def test_extract_json_from_text_code_block_no_lang(self) -> None:
         client = self._make_client()
-        text = "```\n{\"answer\": 42}\n```"
+        text = '```\n{"answer": 42}\n```'
         result = client._extract_json_from_text(text)
         assert result == {"answer": 42}
 
@@ -343,9 +343,12 @@ class TestLLMClientFactory:
         original_max = LLMClientFactory._max_cache_size
         LLMClientFactory._max_cache_size = 2
         try:
-            with patch("anthropic.AsyncAnthropic"), patch("openai.AsyncOpenAI"), patch(
-                "google.generativeai.configure"
-            ), patch("google.generativeai.GenerativeModel"):
+            with (
+                patch("anthropic.AsyncAnthropic"),
+                patch("openai.AsyncOpenAI"),
+                patch("google.generativeai.configure"),
+                patch("google.generativeai.GenerativeModel"),
+            ):
                 LLMClientFactory.get_client("anthropic", "model-a", settings)
                 LLMClientFactory.get_client("openai", "model-b", settings)
                 # Adding a third entry should evict model-a
@@ -851,7 +854,9 @@ class TestGraphExecutor:
             "errors": [],
         }
 
-        with patch("app.services.graph_executor.get_registry", return_value=self._make_mock_registry()):
+        with patch(
+            "app.services.graph_executor.get_registry", return_value=self._make_mock_registry()
+        ):
             response = executor._state_to_response(state, "my_skill")
 
         assert response.status == ExecutionStatus.FAILED
@@ -878,7 +883,9 @@ class TestGraphExecutor:
             "errors": [],
         }
 
-        with patch("app.services.graph_executor.get_registry", return_value=self._make_mock_registry()):
+        with patch(
+            "app.services.graph_executor.get_registry", return_value=self._make_mock_registry()
+        ):
             response = executor._state_to_response(state, "my_skill")
 
         assert response.status == ExecutionStatus.PARTIAL
@@ -902,7 +909,9 @@ class TestGraphExecutor:
             "errors": [],
         }
 
-        with patch("app.services.graph_executor.get_registry", return_value=self._make_mock_registry()):
+        with patch(
+            "app.services.graph_executor.get_registry", return_value=self._make_mock_registry()
+        ):
             response = executor._state_to_response(state, "my_skill")
 
         assert response.status == ExecutionStatus.PENDING
@@ -926,7 +935,9 @@ class TestGraphExecutor:
             "errors": ["something went wrong"],
         }
 
-        with patch("app.services.graph_executor.get_registry", return_value=self._make_mock_registry()):
+        with patch(
+            "app.services.graph_executor.get_registry", return_value=self._make_mock_registry()
+        ):
             response = executor._state_to_response(state, "my_skill")
 
         assert response.status == ExecutionStatus.FAILED
@@ -1076,9 +1087,7 @@ class TestWorkflowExecutor:
             executor = get_workflow_executor()
             assert executor is not None
 
-    def _make_loaded_workflow(
-        self, workflow_id: str, steps: Any
-    ) -> Any:
+    def _make_loaded_workflow(self, workflow_id: str, steps: Any) -> Any:
         """Helper to build a LoadedWorkflow for testing."""
         from app.models.workflow import LoadedWorkflow, WorkflowConfig
 
@@ -1107,12 +1116,10 @@ class TestWorkflowExecutor:
             "test-wf",
             [
                 WorkflowStepConfig(
-                    step_id="step_1", schema_id="schema_a", name="Step 1",
-                    on_failure=OnFailure.STOP
+                    step_id="step_1", schema_id="schema_a", name="Step 1", on_failure=OnFailure.STOP
                 ),
                 WorkflowStepConfig(
-                    step_id="step_2", schema_id="schema_b", name="Step 2",
-                    on_failure=OnFailure.STOP
+                    step_id="step_2", schema_id="schema_b", name="Step 2", on_failure=OnFailure.STOP
                 ),
             ],
         )
@@ -1123,12 +1130,13 @@ class TestWorkflowExecutor:
         mock_graph_exec_instance = MagicMock()
         mock_graph_exec_instance.execute = AsyncMock(side_effect=RuntimeError("LLM failed"))
 
-        with patch.object(executor, "resolve_workflow", return_value=loaded_workflow), patch(
-            "app.services.workflow_executor.get_settings", return_value=mock_settings_obj
-        ), patch(
-            "app.services.graph_executor.create_skill_execution_graph"
-        ), patch(
-            "app.services.graph_executor.GraphExecutor", return_value=mock_graph_exec_instance
+        with (
+            patch.object(executor, "resolve_workflow", return_value=loaded_workflow),
+            patch("app.services.workflow_executor.get_settings", return_value=mock_settings_obj),
+            patch("app.services.graph_executor.create_skill_execution_graph"),
+            patch(
+                "app.services.graph_executor.GraphExecutor", return_value=mock_graph_exec_instance
+            ),
         ):
             result = await executor.execute(
                 WorkflowExecutionRequest(document="doc", workflow_id="test-wf")
@@ -1150,12 +1158,16 @@ class TestWorkflowExecutor:
             "test-wf-2",
             [
                 WorkflowStepConfig(
-                    step_id="step_1", schema_id="schema_a", name="Step 1",
-                    on_failure=OnFailure.CONTINUE
+                    step_id="step_1",
+                    schema_id="schema_a",
+                    name="Step 1",
+                    on_failure=OnFailure.CONTINUE,
                 ),
                 WorkflowStepConfig(
-                    step_id="step_2", schema_id="schema_b", name="Step 2",
-                    on_failure=OnFailure.CONTINUE
+                    step_id="step_2",
+                    schema_id="schema_b",
+                    name="Step 2",
+                    on_failure=OnFailure.CONTINUE,
                 ),
             ],
         )
@@ -1175,12 +1187,13 @@ class TestWorkflowExecutor:
             side_effect=[RuntimeError("step 1 failed"), success_response]
         )
 
-        with patch.object(executor, "resolve_workflow", return_value=loaded_workflow), patch(
-            "app.services.workflow_executor.get_settings", return_value=mock_settings_obj
-        ), patch(
-            "app.services.graph_executor.create_skill_execution_graph"
-        ), patch(
-            "app.services.graph_executor.GraphExecutor", return_value=mock_graph_exec_instance
+        with (
+            patch.object(executor, "resolve_workflow", return_value=loaded_workflow),
+            patch("app.services.workflow_executor.get_settings", return_value=mock_settings_obj),
+            patch("app.services.graph_executor.create_skill_execution_graph"),
+            patch(
+                "app.services.graph_executor.GraphExecutor", return_value=mock_graph_exec_instance
+            ),
         ):
             result = await executor.execute(
                 WorkflowExecutionRequest(document="doc", workflow_id="test-wf-2")
@@ -1201,8 +1214,7 @@ class TestWorkflowExecutor:
             "test-wf-3",
             [
                 WorkflowStepConfig(
-                    step_id="step_1", schema_id="schema_a", name="Step 1",
-                    on_failure=OnFailure.STOP
+                    step_id="step_1", schema_id="schema_a", name="Step 1", on_failure=OnFailure.STOP
                 ),
             ],
         )
@@ -1213,12 +1225,13 @@ class TestWorkflowExecutor:
         mock_graph_exec_instance = MagicMock()
         mock_graph_exec_instance.execute = AsyncMock(side_effect=RuntimeError("unexpected crash"))
 
-        with patch.object(executor, "resolve_workflow", return_value=loaded_workflow), patch(
-            "app.services.workflow_executor.get_settings", return_value=mock_settings_obj
-        ), patch(
-            "app.services.graph_executor.create_skill_execution_graph"
-        ), patch(
-            "app.services.graph_executor.GraphExecutor", return_value=mock_graph_exec_instance
+        with (
+            patch.object(executor, "resolve_workflow", return_value=loaded_workflow),
+            patch("app.services.workflow_executor.get_settings", return_value=mock_settings_obj),
+            patch("app.services.graph_executor.create_skill_execution_graph"),
+            patch(
+                "app.services.graph_executor.GraphExecutor", return_value=mock_graph_exec_instance
+            ),
         ):
             result = await executor.execute(
                 WorkflowExecutionRequest(document="doc", workflow_id="test-wf-3")
@@ -1446,9 +1459,7 @@ class TestGraphNodeFunctions:
         from app.services.graph.nodes import human_review_node
         from app.services.graph.state import SkillGraphState
 
-        validation_result = ValidationResult(
-            status="FAIL", errors=["Error 1"], quality_score=50
-        )
+        validation_result = ValidationResult(status="FAIL", errors=["Error 1"], quality_score=50)
         state = SkillGraphState(
             document="doc",
             schema_id="schema",
