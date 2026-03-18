@@ -3,6 +3,7 @@
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"Starting {settings.app_name}")
 
     # Initialize registry on startup if local path is configured
-    if settings.local_skills_path or settings.github_repo_url:
+    if settings.local_skills_path or settings.github_repo_url or Path("./skills-library").exists():
         try:
             registry = SkillRegistry()
             commit = registry.initialize()

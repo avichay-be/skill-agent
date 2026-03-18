@@ -92,12 +92,13 @@
   ],
 
   "post_processing": {
-    "merge_strategy": "assemble_html",
+    "merge_strategy": "merge_deep",
     "assembly_order": ["htmlHeader", "htmlPanels", "htmlCharts"],
     "output_format": "single_html_file",
     "validation_rules": [
       {
         "id": "VAL001",
+        "name": "JSON analysis fields present",
         "type": "required",
         "params": { "fields": ["jsonAnalysis.shape", "jsonAnalysis.topLevelKeys"] },
         "severity": "error",
@@ -105,6 +106,7 @@
       },
       {
         "id": "VAL002",
+        "name": "Section mapping tabs present",
         "type": "required",
         "params": { "fields": ["sectionMapping.tabs"] },
         "severity": "error",
@@ -112,6 +114,7 @@
       },
       {
         "id": "VAL003",
+        "name": "Tab count within expected range",
         "type": "cross_check",
         "params": { "formula": "len(sectionMapping.tabs) >= 1 AND len(sectionMapping.tabs) <= 10" },
         "severity": "warning",
@@ -119,6 +122,7 @@
       },
       {
         "id": "VAL004",
+        "name": "All JSON fields represented in panels",
         "type": "cross_check",
         "params": { "formula": "all fields in jsonAnalysis.allFields appear in at least one tab panel" },
         "severity": "warning",
@@ -126,6 +130,7 @@
       },
       {
         "id": "VAL005",
+        "name": "HTML header contains CSS and markup",
         "type": "required",
         "params": { "fields": ["htmlHeader.css", "htmlHeader.headerHtml"] },
         "severity": "error",
@@ -133,6 +138,7 @@
       },
       {
         "id": "VAL006",
+        "name": "Panel count matches tab count",
         "type": "cross_check",
         "params": { "formula": "count(htmlPanels.panels) == count(sectionMapping.tabs)" },
         "severity": "error",
@@ -140,6 +146,7 @@
       },
       {
         "id": "VAL007",
+        "name": "Chart configs are valid Chart.js JSON",
         "type": "cross_check",
         "params": { "formula": "htmlCharts.chartConfigs are valid Chart.js JSON" },
         "severity": "warning",
@@ -147,6 +154,7 @@
       },
       {
         "id": "VAL008",
+        "name": "Assembled HTML is a full document",
         "type": "cross_check",
         "params": { "formula": "assembledHtml contains <!DOCTYPE html> AND </html>" },
         "severity": "error",

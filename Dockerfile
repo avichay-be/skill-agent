@@ -43,6 +43,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy application code
 COPY app ./app
 COPY skills-library ./skills-library
+COPY workflows ./workflows
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && \

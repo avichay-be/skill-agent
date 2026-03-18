@@ -56,6 +56,21 @@ class GitLoader:
                 url = url.replace("https://", f"https://{self.settings.github_token}@")
         return url
 
+    def _get_local_skills_path(self) -> Optional[Path]:
+        """Resolve a local skills directory when one is available."""
+        candidates: List[Path] = []
+
+        if self.settings.local_skills_path:
+            candidates.append(Path(self.settings.local_skills_path))
+
+        candidates.append(Path("./skills-library"))
+
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+
+        return None
+
     def clone_or_pull(self, target_path: Optional[str] = None) -> str:
         """Clone repository or pull latest changes.
 
@@ -69,23 +84,23 @@ class GitLoader:
             - local: Uses local_skills_path (defaults to ./skills-library)
             - test/production: Uses github_repo_url
         """
+        local_skills_path = self._get_local_skills_path()
+
         # In local environment, prefer local skills path
-        if self.settings.environment == "local":
-            local_path = self.settings.local_skills_path or "./skills-library"
-            self._local_path = Path(local_path)
+        if self.settings.environment == "local" and local_skills_path:
+            self._local_path = local_skills_path
             if self._local_path.exists():
                 self._is_direct_skills_path = True
                 logger.info(f"Using local skills path: {self._local_path}")
                 return "local"
-            else:
-                logger.warning(f"Local skills path not found: {self._local_path}")
-                # Fall through to GitHub if local path doesn't exist
+            logger.warning(f"Local skills path not found: {self._local_path}")
+            # Fall through to GitHub if local path doesn't exist
 
         # In test/production, or if local path doesn't exist, use GitHub
         if not self.settings.github_repo_url:
             # Fallback to local path if no GitHub URL configured
-            if self.settings.local_skills_path:
-                self._local_path = Path(self.settings.local_skills_path)
+            if local_skills_path:
+                self._local_path = local_skills_path
                 self._is_direct_skills_path = True
                 logger.info(f"Using local skills path (fallback): {self._local_path}")
                 return "local"
@@ -238,7 +253,26 @@ class GitLoader:
 
     def _get_workflows_dir(self) -> Path:
         """Get the workflows directory path from settings."""
-        return Path(self.settings.workflows_path)
+        workflows_path = Path(self.settings.workflows_path)
+        if workflows_path.is_absolute():
+            return workflows_path
+
+        candidates: List[Path] = []
+
+        if self._local_path:
+            if self._is_direct_skills_path:
+                candidates.append(self._local_path / workflows_path)
+                candidates.append(self._local_path.parent / workflows_path)
+            else:
+                candidates.append(self._local_path / workflows_path)
+
+        candidates.append(workflows_path)
+
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+
+        return candidates[0]
 
     def list_workflows(self) -> List[str]:
         """List all available workflow IDs (JSON file stems in workflows/ dir)."""

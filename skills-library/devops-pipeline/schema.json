@@ -1,0 +1,160 @@
+{
+  "schema_id": "devops-pipeline",
+  "version": "1.0.0",
+  "name": "DevOps Pipeline Generator",
+  "description": "Analyzes a project and generates a complete DevOps pipeline: Dockerfile, startup script, GitHub Actions CI/CD workflows, and Azure Container Apps init script. On first run (init mode) creates everything from scratch. On subsequent runs checks CI/CD health via Azure CLI.",
+
+  "skills": [
+    {
+      "id": "analyze_project",
+      "name": "Analyze Project",
+      "prompt_file": "prompts/analyze_project.md",
+      "parallel_group": 1,
+      "timeout_seconds": 60,
+      "retry_count": 1,
+      "output_fields": ["projectAnalysis"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active"
+    },
+    {
+      "id": "generate_dockerfile",
+      "name": "Generate Dockerfile",
+      "prompt_file": "prompts/generate_dockerfile.md",
+      "parallel_group": 2,
+      "timeout_seconds": 90,
+      "retry_count": 1,
+      "output_fields": ["dockerfile"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active",
+      "depends_on": ["analyze_project"]
+    },
+    {
+      "id": "generate_ci_pipeline",
+      "name": "Generate CI Pipeline",
+      "prompt_file": "prompts/generate_ci_pipeline.md",
+      "parallel_group": 2,
+      "timeout_seconds": 90,
+      "retry_count": 1,
+      "output_fields": ["ciPipeline"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active",
+      "depends_on": ["analyze_project"]
+    },
+    {
+      "id": "generate_startup_script",
+      "name": "Generate Startup Script",
+      "prompt_file": "prompts/generate_startup_script.md",
+      "parallel_group": 2,
+      "timeout_seconds": 60,
+      "retry_count": 1,
+      "output_fields": ["startupScript"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active",
+      "depends_on": ["analyze_project"]
+    },
+    {
+      "id": "generate_cd_pipeline",
+      "name": "Generate CD Pipeline",
+      "prompt_file": "prompts/generate_cd_pipeline.md",
+      "parallel_group": 3,
+      "timeout_seconds": 120,
+      "retry_count": 2,
+      "output_fields": ["cdPipeline"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active",
+      "depends_on": ["generate_dockerfile", "generate_ci_pipeline"]
+    },
+    {
+      "id": "generate_azure_init",
+      "name": "Generate Azure Init Script",
+      "prompt_file": "prompts/generate_azure_init.md",
+      "parallel_group": 3,
+      "timeout_seconds": 90,
+      "retry_count": 1,
+      "output_fields": ["azureInit"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active",
+      "depends_on": ["generate_dockerfile"]
+    },
+    {
+      "id": "validate_pipeline",
+      "name": "Validate Pipeline",
+      "prompt_file": "prompts/validate_pipeline.md",
+      "parallel_group": 4,
+      "timeout_seconds": 60,
+      "retry_count": 1,
+      "output_fields": ["validation"],
+      "vendor": null,
+      "model": null,
+      "temperature": 0.0,
+      "status": "active",
+      "depends_on": ["generate_cd_pipeline", "generate_azure_init"]
+    }
+  ],
+
+  "post_processing": {
+    "merge_strategy": "merge_deep",
+    "validation_rules": [
+      {
+        "id": "VAL001",
+        "name": "Project analysis complete",
+        "type": "required",
+        "params": { "fields": ["projectAnalysis.language", "projectAnalysis.framework", "projectAnalysis.entryPoint"] },
+        "severity": "error",
+        "message": "Project analysis must identify language, framework, and entry point"
+      },
+      {
+        "id": "VAL002",
+        "name": "Dockerfile generated",
+        "type": "required",
+        "params": { "fields": ["dockerfile.content"] },
+        "severity": "error",
+        "message": "Dockerfile content must be generated"
+      },
+      {
+        "id": "VAL003",
+        "name": "CI pipeline generated",
+        "type": "required",
+        "params": { "fields": ["ciPipeline.content"] },
+        "severity": "error",
+        "message": "CI pipeline workflow YAML must be generated"
+      },
+      {
+        "id": "VAL004",
+        "name": "CD pipeline generated",
+        "type": "required",
+        "params": { "fields": ["cdPipeline.content"] },
+        "severity": "error",
+        "message": "CD pipeline workflow YAML must be generated"
+      },
+      {
+        "id": "VAL005",
+        "name": "Azure init script generated",
+        "type": "required",
+        "params": { "fields": ["azureInit.content"] },
+        "severity": "error",
+        "message": "Azure init script must be generated"
+      },
+      {
+        "id": "VAL006",
+        "name": "All validation checks passed",
+        "type": "cross_check",
+        "params": { "formula": "validation.allPassed == true" },
+        "severity": "warning",
+        "message": "Not all validation checks passed — review validation notes"
+      }
+    ]
+  }
+}
