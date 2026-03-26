@@ -2,15 +2,13 @@
 
 Targets:
 - app/services/llm_client.py
-- app/services/github_client.py
 - app/services/graph_executor.py
 - app/services/workflow_executor.py
 - app/services/graph/nodes.py
-- app/models/cicd.py
 """
 
-import base64
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -381,363 +379,6 @@ class TestLLMClientFactory:
 
 
 # ===========================================================================
-# GitHub client tests
-# ===========================================================================
-
-
-class TestGitHubClient:
-    """Tests for the GitHubClient."""
-
-    def _make_client(self) -> Any:
-        from app.services.github_client import GitHubClient
-
-        return GitHubClient(token="test-token", repo_full_name="org/repo")
-
-    def test_init_sets_headers(self) -> None:
-        client = self._make_client()
-        assert client.token == "test-token"
-        assert client.repo == "org/repo"
-        assert "Bearer test-token" in client._headers["Authorization"]
-        assert client._headers["Accept"] == "application/vnd.github+json"
-
-    async def test_get_compare_success(self) -> None:
-        client = self._make_client()
-        compare_data = {"files": [], "commits": []}
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = compare_data
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.get = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            result = await client.get_compare("abc123", "def456")
-
-        assert result == compare_data
-
-    async def test_get_compare_raises_on_non_200(self) -> None:
-        from app.services.github_client import GitHubClientError
-
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-        mock_response.text = "Not Found"
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.get = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            with pytest.raises(GitHubClientError, match="Failed to get compare"):
-                await client.get_compare("abc", "def")
-
-    async def test_get_file_content_base64(self) -> None:
-        client = self._make_client()
-        content_bytes = b"file content here"
-        encoded = base64.b64encode(content_bytes).decode()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"encoding": "base64", "content": encoded}
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.get = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            result = await client.get_file_content("README.md")
-
-        assert result == "file content here"
-
-    async def test_get_file_content_returns_none_on_404(self) -> None:
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.get = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            result = await client.get_file_content("missing.txt")
-
-        assert result is None
-
-    async def test_get_file_content_raises_on_other_error(self) -> None:
-        from app.services.github_client import GitHubClientError
-
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-        mock_response.text = "Server Error"
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.get = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            with pytest.raises(GitHubClientError, match="Failed to get file"):
-                await client.get_file_content("file.txt")
-
-    async def test_create_branch_success(self) -> None:
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 201
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.post = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            # Should not raise
-            await client.create_branch("feature/new-branch", "abc123sha")
-
-    async def test_create_branch_accepts_422_ref_exists(self) -> None:
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 422  # ref already exists
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.post = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            # Should not raise - 422 is acceptable
-            await client.create_branch("existing-branch", "sha")
-
-    async def test_create_branch_raises_on_error(self) -> None:
-        from app.services.github_client import GitHubClientError
-
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-        mock_response.text = "Server Error"
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.post = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            with pytest.raises(GitHubClientError, match="Failed to create branch"):
-                await client.create_branch("branch", "sha")
-
-    async def test_create_or_update_file_success(self) -> None:
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 201
-        mock_response.json.return_value = {"commit": {"sha": "new-sha"}}
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.put = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            result = await client.create_or_update_file(
-                path="test.yml",
-                content="content",
-                message="Add file",
-                branch="main",
-            )
-
-        assert result["commit"]["sha"] == "new-sha"
-
-    async def test_create_or_update_file_with_sha(self) -> None:
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {}
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.put = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            await client.create_or_update_file(
-                path="test.yml",
-                content="content",
-                message="Update file",
-                branch="main",
-                sha="existing-sha",
-            )
-
-    async def test_create_or_update_file_raises_on_error(self) -> None:
-        from app.services.github_client import GitHubClientError
-
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 422
-        mock_response.text = "Unprocessable"
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.put = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            with pytest.raises(GitHubClientError, match="Failed to create/update file"):
-                await client.create_or_update_file("f", "c", "m", "main")
-
-    async def test_get_file_sha_returns_sha(self) -> None:
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"sha": "file-sha-abc"}
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.get = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            sha = await client.get_file_sha("README.md", "main")
-
-        assert sha == "file-sha-abc"
-
-    async def test_get_file_sha_returns_none_on_404(self) -> None:
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.get = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            sha = await client.get_file_sha("missing.txt", "main")
-
-        assert sha is None
-
-    async def test_get_file_sha_raises_on_error(self) -> None:
-        from app.services.github_client import GitHubClientError
-
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 403
-        mock_response.text = "Forbidden"
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.get = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            with pytest.raises(GitHubClientError, match="Failed to get file SHA"):
-                await client.get_file_sha("file.txt", "main")
-
-    async def test_create_pull_request_success(self) -> None:
-        client = self._make_client()
-
-        pr_data = {"html_url": "https://github.com/org/repo/pull/1", "number": 1}
-        mock_response = MagicMock()
-        mock_response.status_code = 201
-        mock_response.json.return_value = pr_data
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.post = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            result = await client.create_pull_request(
-                title="Test PR", body="PR body", head="feature/branch", base="main"
-            )
-
-        assert result["number"] == 1
-
-    async def test_create_pull_request_raises_on_non_201(self) -> None:
-        from app.services.github_client import GitHubClientError
-
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 422
-        mock_response.text = "Branch conflict"
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.post = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            with pytest.raises(GitHubClientError, match="Failed to create PR"):
-                await client.create_pull_request("title", "body", "head")
-
-    async def test_get_existing_pipeline_files(self) -> None:
-        client = self._make_client()
-
-        # get_file_content returns None for missing files, content otherwise
-        async def mock_get_file(path: str, ref: str = "main") -> Optional[str]:
-            if path == "Dockerfile":
-                return "FROM python:3.11"
-            return None
-
-        with patch.object(client, "get_file_content", side_effect=mock_get_file):
-            results = await client.get_existing_pipeline_files()
-
-        assert results["Dockerfile"] == "FROM python:3.11"
-        assert results[".github/workflows/ci.yml"] is None
-
-    async def test_get_file_content_non_base64_encoding(self) -> None:
-        client = self._make_client()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"encoding": "utf-8", "content": "plain text"}
-
-        with patch("httpx.AsyncClient") as mock_http_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=None)
-            mock_http.get = AsyncMock(return_value=mock_response)
-            mock_http_cls.return_value = mock_http
-
-            result = await client.get_file_content("file.txt")
-
-        assert result == "plain text"
-
-
-# ===========================================================================
 # GraphExecutor tests
 # ===========================================================================
 
@@ -748,30 +389,30 @@ class TestGraphExecutor:
     def _make_executor(self) -> Any:
         from app.services.graph_executor import GraphExecutor
 
-        with patch("app.services.graph_executor.create_skill_execution_graph") as mock_graph_fn:
-            mock_graph = MagicMock()
-            mock_graph_fn.return_value = mock_graph
-            executor = GraphExecutor()
-            executor.graph = mock_graph
-            return executor
+        return GraphExecutor(
+            settings=SimpleNamespace(checkpoint_backend="memory", checkpoint_db_path=":memory:")
+        )
 
-    def test_init_creates_graph(self) -> None:
-        with patch("app.services.graph_executor.create_skill_execution_graph") as mock_fn:
-            mock_fn.return_value = MagicMock()
-            from app.services.graph_executor import GraphExecutor
+    def test_init_stores_settings(self) -> None:
+        from app.services.graph_executor import GraphExecutor
 
-            executor = GraphExecutor()
-            assert executor.graph is not None
-            mock_fn.assert_called_once()
+        executor = GraphExecutor(
+            settings=SimpleNamespace(checkpoint_backend="memory", checkpoint_db_path=":memory:")
+        )
+        assert executor.settings is not None
 
     async def test_execute_returns_failed_on_graph_exception(self) -> None:
         from app.models.execution import ExecutionRequest, ExecutionStatus
 
         executor = self._make_executor()
-        executor.graph.ainvoke = AsyncMock(side_effect=RuntimeError("graph crashed"))
+        fake_graph = MagicMock()
+        fake_graph.ainvoke = AsyncMock(side_effect=RuntimeError("graph crashed"))
 
         request = ExecutionRequest(document="test doc", skill_name="test_schema")
-        result = await executor.execute(request)
+        with patch(
+            "app.services.graph_executor.create_skill_execution_graph", return_value=fake_graph
+        ):
+            result = await executor.execute(request)
 
         assert result.status == ExecutionStatus.FAILED
         assert "graph crashed" in (result.error or "")
@@ -792,7 +433,8 @@ class TestGraphExecutor:
             "completed_at": datetime.now(timezone.utc),
             "errors": [],
         }
-        executor.graph.ainvoke = AsyncMock(return_value=final_state)
+        fake_graph = MagicMock()
+        fake_graph.ainvoke = AsyncMock(return_value=final_state)
 
         request = ExecutionRequest(document="doc", skill_name="test_schema")
 
@@ -803,7 +445,12 @@ class TestGraphExecutor:
         mock_schema.config.version = "1.0"
         mock_registry.get_schema_or_raise.return_value = mock_schema
 
-        with patch("app.services.graph_executor.get_registry", return_value=mock_registry):
+        with (
+            patch("app.services.graph_executor.get_registry", return_value=mock_registry),
+            patch(
+                "app.services.graph_executor.create_skill_execution_graph", return_value=fake_graph
+            ),
+        ):
             result = await executor.execute(request)
 
         assert result.status == ExecutionStatus.COMPLETED
@@ -1124,15 +771,11 @@ class TestWorkflowExecutor:
             ],
         )
 
-        mock_settings_obj = MagicMock()
-        mock_settings_obj.use_langgraph = True
-
         mock_graph_exec_instance = MagicMock()
         mock_graph_exec_instance.execute = AsyncMock(side_effect=RuntimeError("LLM failed"))
 
         with (
             patch.object(executor, "resolve_workflow", return_value=loaded_workflow),
-            patch("app.services.workflow_executor.get_settings", return_value=mock_settings_obj),
             patch("app.services.graph_executor.create_skill_execution_graph"),
             patch(
                 "app.services.graph_executor.GraphExecutor", return_value=mock_graph_exec_instance
@@ -1178,9 +821,6 @@ class TestWorkflowExecutor:
             data={"key": "value"},
         )
 
-        mock_settings_obj = MagicMock()
-        mock_settings_obj.use_langgraph = True
-
         # First call raises (step 1 fails), second call returns success (step 2)
         mock_graph_exec_instance = MagicMock()
         mock_graph_exec_instance.execute = AsyncMock(
@@ -1189,7 +829,6 @@ class TestWorkflowExecutor:
 
         with (
             patch.object(executor, "resolve_workflow", return_value=loaded_workflow),
-            patch("app.services.workflow_executor.get_settings", return_value=mock_settings_obj),
             patch("app.services.graph_executor.create_skill_execution_graph"),
             patch(
                 "app.services.graph_executor.GraphExecutor", return_value=mock_graph_exec_instance
@@ -1219,15 +858,11 @@ class TestWorkflowExecutor:
             ],
         )
 
-        mock_settings_obj = MagicMock()
-        mock_settings_obj.use_langgraph = True
-
         mock_graph_exec_instance = MagicMock()
         mock_graph_exec_instance.execute = AsyncMock(side_effect=RuntimeError("unexpected crash"))
 
         with (
             patch.object(executor, "resolve_workflow", return_value=loaded_workflow),
-            patch("app.services.workflow_executor.get_settings", return_value=mock_settings_obj),
             patch("app.services.graph_executor.create_skill_execution_graph"),
             patch(
                 "app.services.graph_executor.GraphExecutor", return_value=mock_graph_exec_instance
@@ -1266,6 +901,11 @@ class TestGraphNodeHelpers:
             document="test doc",
             schema_id="my_schema",
             execution_id="exec-1",
+            vendor=None,
+            model=None,
+            validation_result=None,
+            human_feedback=None,
+            next_action=None,
         )
         assert _state_get(state, "document") == "test doc"
         assert _state_get(state, "schema_id") == "my_schema"
@@ -1433,6 +1073,11 @@ class TestGraphNodeFunctions:
             document="test document",
             schema_id="test_schema",
             execution_id="exec-123",
+            vendor=None,
+            model=None,
+            validation_result=None,
+            human_feedback=None,
+            next_action=None,
         )
 
         mock_registry = MagicMock()
@@ -1464,7 +1109,11 @@ class TestGraphNodeFunctions:
             document="doc",
             schema_id="schema",
             execution_id="exec-123",
+            vendor=None,
+            model=None,
             validation_result=validation_result,
+            human_feedback=None,
+            next_action=None,
         )
 
         result = await human_review_node(state)
@@ -1480,6 +1129,11 @@ class TestGraphNodeFunctions:
             document="doc",
             schema_id="schema",
             execution_id="exec-123",
+            vendor=None,
+            model=None,
+            validation_result=None,
+            human_feedback=None,
+            next_action=None,
         )
 
         result = await save_checkpoint(state)
@@ -1749,139 +1403,3 @@ class TestGraphNodeFunctions:
         assert result["validation_result"].status == "FAIL"
         assert len(result["validation_result"].errors) > 0
         assert result["human_review_required"] is True
-
-
-# ===========================================================================
-# CICD Models tests
-# ===========================================================================
-
-
-class TestCICDModels:
-    """Tests for models/cicd.py Pydantic models."""
-
-    def test_cicd_webhook_request_get_branch(self) -> None:
-        from app.models.cicd import CICDWebhookRequest
-
-        request = CICDWebhookRequest(
-            ref="refs/heads/main",
-            before="old-sha",
-            after="new-sha",
-            repository={"full_name": "org/repo"},
-        )
-        assert request.get_branch() == "main"
-
-    def test_cicd_webhook_request_get_branch_non_head_ref(self) -> None:
-        from app.models.cicd import CICDWebhookRequest
-
-        request = CICDWebhookRequest(
-            ref="refs/tags/v1.0",
-            before="old-sha",
-            after="new-sha",
-            repository={"full_name": "org/repo"},
-        )
-        assert request.get_branch() is None
-
-    def test_cicd_webhook_request_get_repo_full_name(self) -> None:
-        from app.models.cicd import CICDWebhookRequest
-
-        request = CICDWebhookRequest(
-            ref="refs/heads/main",
-            before="old-sha",
-            after="new-sha",
-            repository={"full_name": "myorg/myrepo"},
-        )
-        assert request.get_repo_full_name() == "myorg/myrepo"
-
-    def test_cicd_webhook_request_get_changed_files(self) -> None:
-        from app.models.cicd import CICDWebhookRequest
-
-        request = CICDWebhookRequest(
-            ref="refs/heads/main",
-            before="old-sha",
-            after="new-sha",
-            repository={"full_name": "org/repo"},
-            commits=[
-                {"added": ["file1.py"], "modified": ["file2.py"], "removed": []},
-                {"added": [], "modified": ["file2.py"], "removed": ["file3.py"]},
-            ],
-        )
-        changed = request.get_changed_files()
-        assert "file1.py" in changed
-        assert "file2.py" in changed
-        assert "file3.py" in changed
-        # Deduplicated
-        assert changed.count("file2.py") == 1
-
-    def test_cicd_webhook_request_no_commits(self) -> None:
-        from app.models.cicd import CICDWebhookRequest
-
-        request = CICDWebhookRequest(
-            ref="refs/heads/main",
-            before="old-sha",
-            after="new-sha",
-            repository={"full_name": "org/repo"},
-        )
-        assert request.get_changed_files() == []
-
-    def test_change_analysis_defaults(self) -> None:
-        from app.models.cicd import ChangeAnalysis, RiskLevel
-
-        analysis = ChangeAnalysis()
-        assert analysis.risk_level == RiskLevel.LOW
-        assert analysis.categories == []
-        assert analysis.summary == ""
-
-    def test_pipeline_validation_result_defaults(self) -> None:
-        from app.models.cicd import PipelineValidationResult
-
-        result = PipelineValidationResult()
-        assert result.valid is True
-        assert result.yaml_errors == []
-        assert result.dockerfile_errors == []
-        assert result.security_findings == []
-
-    def test_cicd_execution_response_creation(self) -> None:
-        from app.models.cicd import CICDExecutionResponse, CICDExecutionStatus
-
-        response = CICDExecutionResponse(
-            status=CICDExecutionStatus.RUNNING,
-            repository="org/repo",
-            branch="main",
-            commit_sha="abc123",
-        )
-        assert response.status == CICDExecutionStatus.RUNNING
-        assert response.repository == "org/repo"
-        assert response.execution_id is not None
-
-    def test_security_finding_creation(self) -> None:
-        from app.models.cicd import SecurityFinding
-
-        finding = SecurityFinding(severity="high", message="Hardcoded secret detected")
-        assert finding.severity == "high"
-        assert finding.message == "Hardcoded secret detected"
-        assert finding.line is None
-
-    def test_pipeline_file_update_creation(self) -> None:
-        from app.models.cicd import PipelineFileType, PipelineFileUpdate
-
-        update = PipelineFileUpdate(
-            file_type=PipelineFileType.GITHUB_ACTIONS,
-            file_path=".github/workflows/ci.yml",
-            content="name: CI",
-            reason="Updated for new feature",
-        )
-        assert update.file_type == PipelineFileType.GITHUB_ACTIONS
-        assert update.content == "name: CI"
-
-    def test_change_category_enum_values(self) -> None:
-        from app.models.cicd import ChangeCategory
-
-        assert ChangeCategory.APP_CODE == "app_code"
-        assert ChangeCategory.CI_CD == "ci_cd"
-        assert ChangeCategory.INFRASTRUCTURE == "infrastructure"
-
-    def test_risk_level_enum_values(self) -> None:
-        from app.models.cicd import RiskLevel
-
-        assert RiskLevel.LOW == "low"
-        assert RiskLevel.CRITICAL == "critical"

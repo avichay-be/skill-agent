@@ -7,7 +7,6 @@ This module constructs the StateGraph that orchestrates skill execution.
 from typing import Any, Literal
 
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
 from app.services.graph import nodes
@@ -84,7 +83,11 @@ def create_skill_execution_graph(
         if checkpointer_type == "memory":
             active_checkpointer = MemorySaver()
         elif checkpointer_type == "sqlite":
-            active_checkpointer = SqliteSaver.from_conn_string(checkpoint_db_path)
+            raise ValueError(
+                "SQLite checkpointer requires a live saver instance. "
+                "Use SqliteSaver.from_conn_string(...) as a context manager and "
+                "pass the yielded saver to create_skill_execution_graph()."
+            )
         else:
             active_checkpointer = MemorySaver()
 
@@ -171,6 +174,10 @@ def create_dynamic_selection_graph(
         if checkpointer_type == "memory":
             active_checkpointer = MemorySaver()
         else:
-            active_checkpointer = SqliteSaver.from_conn_string("./data/checkpoints_dynamic.db")
+            raise ValueError(
+                "SQLite checkpointer requires a live saver instance. "
+                "Use SqliteSaver.from_conn_string(...) as a context manager and "
+                "pass the yielded saver to create_dynamic_selection_graph()."
+            )
 
     return workflow.compile(checkpointer=active_checkpointer)

@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -23,7 +23,7 @@ class WorkflowStepConfig(BaseModel):
     step_id: str = Field(..., description="Unique step identifier")
     schema_id: str = Field(..., description="Schema to execute for this step")
     name: str = Field(..., description="Human-readable step name")
-    description: Optional[str] = Field(default=None, description="Step description")
+    description: str | None = Field(default=None, description="Step description")
     on_failure: OnFailure = Field(default=OnFailure.STOP, description="Action on failure")
 
 
@@ -33,8 +33,8 @@ class WorkflowConfig(BaseModel):
     workflow_id: str = Field(..., description="Unique workflow identifier")
     version: str = Field(..., description="Workflow version")
     name: str = Field(..., description="Human-readable workflow name")
-    description: Optional[str] = Field(default=None, description="Workflow description")
-    steps: List[WorkflowStepConfig] = Field(
+    description: str | None = Field(default=None, description="Workflow description")
+    steps: list[WorkflowStepConfig] = Field(
         ..., min_length=1, description="Ordered list of workflow steps"
     )
 
@@ -52,28 +52,28 @@ class WorkflowExecutionRequest(BaseModel):
     """Request to execute a workflow."""
 
     document: str = Field(..., description="Document content to process")
-    workflow_id: Optional[str] = Field(
+    workflow_id: str | None = Field(
         default=None,
         description="Saved workflow ID to execute",
     )
-    schema_ids: Optional[List[str]] = Field(
+    schema_ids: list[str] | None = Field(
         default=None,
         description="Ordered schema IDs to compose into an ephemeral workflow",
     )
-    workflow_name: Optional[str] = Field(
+    workflow_name: str | None = Field(
         default=None,
         description="Optional display name for an ephemeral composed workflow",
     )
-    workflow_description: Optional[str] = Field(
+    workflow_description: str | None = Field(
         default=None,
         description="Optional description for an ephemeral composed workflow",
     )
-    vendor: Optional[str] = Field(default=None, description="Override default LLM vendor")
-    model: Optional[str] = Field(default=None, description="Override default model")
-    options: Dict[str, Any] = Field(
+    vendor: str | None = Field(default=None, description="Override default LLM vendor")
+    model: str | None = Field(default=None, description="Override default model")
+    options: dict[str, Any] = Field(
         default_factory=dict, description="Additional execution options"
     )
-    save_to_cosmos: bool = Field(default=True, description="Whether to persist result to CosmosDB")
+    save_to_cosmos: bool = Field(default=False, description="Whether to persist result to CosmosDB")
 
 
 class WorkflowStepResult(BaseModel):
@@ -101,12 +101,12 @@ class WorkflowExecutionMetadata(BaseModel):
     execution_id: str = Field(default_factory=lambda: str(uuid4()))
     workflow_id: str = Field(..., description="Workflow that was executed")
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = Field(default=None)
-    processing_time_ms: Optional[int] = Field(default=None)
+    completed_at: datetime | None = Field(default=None)
+    processing_time_ms: int | None = Field(default=None)
     total_token_usage: TokenUsage = Field(default_factory=TokenUsage)
     steps_completed: int = Field(default=0)
     steps_total: int = Field(default=0)
-    git_commit: Optional[str] = Field(default=None)
+    git_commit: str | None = Field(default=None)
 
 
 class WorkflowExecutionResponse(BaseModel):
@@ -115,22 +115,22 @@ class WorkflowExecutionResponse(BaseModel):
     status: WorkflowExecutionStatus = Field(..., description="Workflow execution status")
     workflow_id: str = Field(..., description="Workflow that was executed")
     workflow_name: str = Field(..., description="Workflow display name")
-    data: Optional[Dict[str, Any]] = Field(
+    data: dict[str, Any] | None = Field(
         default=None, description="Output data from the last successful step"
     )
     metadata: WorkflowExecutionMetadata = Field(
         default_factory=lambda: WorkflowExecutionMetadata(workflow_id="")
     )
-    step_results: List[WorkflowStepResult] = Field(
+    step_results: list[WorkflowStepResult] = Field(
         default_factory=list, description="Results from each step"
     )
-    error: Optional[str] = Field(default=None, description="Error message if failed")
+    error: str | None = Field(default=None, description="Error message if failed")
 
 
 class WorkflowListResponse(BaseModel):
     """Response for listing workflows."""
 
-    workflows: List[WorkflowConfig] = Field(default_factory=list)
+    workflows: list[WorkflowConfig] = Field(default_factory=list)
     total: int = Field(default=0)
 
 
@@ -141,6 +141,6 @@ class WorkflowDetailResponse(BaseModel):
     git_commit: str = Field(..., description="Git commit SHA")
     loaded_at: datetime = Field(..., description="When the workflow was loaded")
     schemas_valid: bool = Field(..., description="Whether all referenced schemas exist")
-    missing_schemas: List[str] = Field(
+    missing_schemas: list[str] = Field(
         default_factory=list, description="Schemas referenced but not found"
     )

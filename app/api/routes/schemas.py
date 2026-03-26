@@ -1,7 +1,7 @@
 """Schemas API routes."""
 
 import logging
-from typing import Annotated, Any, Dict
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -56,7 +56,7 @@ async def reload_schema(
     schema_id: str,
     _api_key: ApiKeyDep,
     registry: Annotated[SkillRegistry, Depends(get_registry)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Force reload a specific schema from Git."""
     try:
         loaded = registry.reload_schema(schema_id)

@@ -5,12 +5,13 @@ This replaces the original SkillExecutor with LangGraph orchestration.
 """
 
 import logging
-from contextlib import nullcontext
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Dict, Optional
+from typing import Any, AsyncIterator
 from uuid import uuid4
 
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from app.core.config import get_settings
 from app.models.execution import (
@@ -41,15 +42,21 @@ class GraphExecutor:
     def __init__(self, settings: Any = None) -> None:
         self.settings = settings or get_settings()
 
-    def _graph_context(self) -> Any:
-        """Create a compiled graph with a live checkpoint backend."""
+    @asynccontextmanager
+    async def _checkpointer_context(self) -> AsyncIterator[Any]:
+        """Yield a live checkpointer instance for async graph execution."""
         backend = self.settings.checkpoint_backend
         checkpoint_db_path = self.settings.checkpoint_db_path
 
         if backend == "sqlite":
-            return SqliteSaver.from_conn_string(checkpoint_db_path)
+            from pathlib import Path
 
-        return nullcontext(None)
+            Path(checkpoint_db_path).parent.mkdir(parents=True, exist_ok=True)
+            async with AsyncSqliteSaver.from_conn_string(checkpoint_db_path) as checkpointer:
+                yield checkpointer
+            return
+
+        yield MemorySaver()
 
     async def execute(self, request: ExecutionRequest) -> "ExecutionResponse":
         """Execute extraction using LangGraph.
@@ -83,7 +90,7 @@ class GraphExecutor:
         try:
             # Run the graph
             config = {"configurable": {"thread_id": execution_id}}
-            with self._graph_context() as checkpointer:
+            async with self._checkpointer_context() as checkpointer:
                 graph = create_skill_execution_graph(
                     checkpointer_type=self.settings.checkpoint_backend,
                     checkpoint_db_path=self.settings.checkpoint_db_path,
@@ -103,7 +110,7 @@ class GraphExecutor:
                 metadata=ExecutionMetadata(),
             )
 
-    async def execute_streaming(self, request: ExecutionRequest) -> AsyncIterator[Dict[str, Any]]:
+    async def execute_streaming(self, request: ExecutionRequest) -> AsyncIterator[dict[str, Any]]:
         """Execute with streaming progress updates.
 
         This yields progress events as the graph executes, enabling
@@ -130,7 +137,7 @@ class GraphExecutor:
 
         config = {"configurable": {"thread_id": execution_id}}
 
-        with self._graph_context() as checkpointer:
+        async with self._checkpointer_context() as checkpointer:
             graph = create_skill_execution_graph(
                 checkpointer_type=self.settings.checkpoint_backend,
                 checkpoint_db_path=self.settings.checkpoint_db_path,
@@ -153,7 +160,7 @@ class GraphExecutor:
                 }
 
     async def resume_execution(
-        self, execution_id: str, human_feedback: Optional[Dict[str, Any]] = None
+        self, execution_id: str, human_feedback: dict[str, Any] | None = None
     ) -> ExecutionResponse:
         """Resume a paused execution (e.g., after human review).
 
@@ -169,7 +176,7 @@ class GraphExecutor:
         """
         config = {"configurable": {"thread_id": execution_id}}
 
-        with self._graph_context() as checkpointer:
+        async with self._checkpointer_context() as checkpointer:
             graph = create_skill_execution_graph(
                 checkpointer_type=self.settings.checkpoint_backend,
                 checkpoint_db_path=self.settings.checkpoint_db_path,
@@ -188,7 +195,7 @@ class GraphExecutor:
         schema_id = final_state.get("schema_id", "unknown")
         return self._state_to_response(final_state, schema_id)
 
-    def _state_to_response(self, state: Dict[str, Any], skill_name: str) -> ExecutionResponse:
+    def _state_to_response(self, state: dict[str, Any], skill_name: str) -> ExecutionResponse:
         """Convert graph state to ExecutionResponse.
 
         Args:
@@ -225,7 +232,7 @@ class GraphExecutor:
         started_at: datetime = (
             started_at_raw if isinstance(started_at_raw, datetime) else datetime.now(timezone.utc)
         )
-        completed_at: Optional[datetime] = (
+        completed_at: datetime | None = (
             completed_at_raw if isinstance(completed_at_raw, datetime) else None
         )
 

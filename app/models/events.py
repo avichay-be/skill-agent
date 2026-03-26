@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -53,11 +53,11 @@ class SkillEvent(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid4()))
     type: EventType = Field(..., description="Event type")
-    schema_id: Optional[str] = Field(default=None, description="Affected schema")
-    skill_id: Optional[str] = Field(default=None, description="Affected skill")
-    git_commit: Optional[str] = Field(default=None, description="Git commit SHA")
+    schema_id: str | None = Field(default=None, description="Affected schema")
+    skill_id: str | None = Field(default=None, description="Affected skill")
+    git_commit: str | None = Field(default=None, description="Git commit SHA")
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    payload: Dict[str, Any] = Field(default_factory=dict, description="Additional data")
+    payload: dict[str, Any] = Field(default_factory=dict, description="Additional data")
 
 
 class WebhookPayload(BaseModel):
@@ -71,19 +71,19 @@ class WebhookPayload(BaseModel):
 class GitWebhookPayload(BaseModel):
     """Payload received from GitHub/GitLab webhooks."""
 
-    ref: Optional[str] = Field(default=None, description="Git ref (e.g., refs/heads/main)")
-    before: Optional[str] = Field(default=None, description="Previous commit SHA")
-    after: Optional[str] = Field(default=None, description="New commit SHA")
-    commits: List[Dict[str, Any]] = Field(default_factory=list, description="List of commits")
-    repository: Optional[Dict[str, Any]] = Field(default=None, description="Repository info")
+    ref: str | None = Field(default=None, description="Git ref (e.g., refs/heads/main)")
+    before: str | None = Field(default=None, description="Previous commit SHA")
+    after: str | None = Field(default=None, description="New commit SHA")
+    commits: list[dict[str, Any]] = Field(default_factory=list, description="List of commits")
+    repository: dict[str, Any] | None = Field(default=None, description="Repository info")
 
-    def get_branch(self) -> Optional[str]:
+    def get_branch(self) -> str | None:
         """Extract branch name from ref."""
         if self.ref and self.ref.startswith("refs/heads/"):
             return self.ref.replace("refs/heads/", "")
         return None
 
-    def get_changed_files(self) -> List[str]:
+    def get_changed_files(self) -> list[str]:
         """Get list of all changed files from commits."""
         files = set()
         for commit in self.commits:

@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -23,12 +23,12 @@ class ExecutionRequest(BaseModel):
 
     document: str = Field(..., description="Document content to extract from")
     skill_name: str = Field(..., description="Skill name (schema_id) to execute")
-    vendor: Optional[str] = Field(default=None, description="Override default LLM vendor")
-    model: Optional[str] = Field(default=None, description="Override default model")
-    options: Dict[str, Any] = Field(
+    vendor: str | None = Field(default=None, description="Override default LLM vendor")
+    model: str | None = Field(default=None, description="Override default model")
+    options: dict[str, Any] = Field(
         default_factory=dict, description="Additional execution options"
     )
-    save_to_cosmos: bool = Field(default=True, description="Whether to persist result to CosmosDB")
+    save_to_cosmos: bool = Field(default=False, description="Whether to persist result to CosmosDB")
 
 
 class DocumentItem(BaseModel):
@@ -41,12 +41,10 @@ class DocumentItem(BaseModel):
 class BatchExecutionRequest(BaseModel):
     """Request to execute extraction on multiple documents via Anthropic Batch API."""
 
-    documents: List[DocumentItem] = Field(..., description="Documents to process")
+    documents: list[DocumentItem] = Field(..., description="Documents to process")
     skill_name: str = Field(..., description="Schema ID to execute")
-    vendor: Optional[str] = Field(
-        default=None, description="Override LLM vendor (must be anthropic)"
-    )
-    model: Optional[str] = Field(default=None, description="Override default model")
+    vendor: str | None = Field(default=None, description="Override LLM vendor (must be anthropic)")
+    model: str | None = Field(default=None, description="Override default model")
 
 
 class ValidationResult(BaseModel):
@@ -54,11 +52,11 @@ class ValidationResult(BaseModel):
 
     status: str = Field(..., description="PASS, REVIEW, or FAIL")
     quality_score: int = Field(default=100, description="Quality score 0-100")
-    checks: List[Dict[str, Any]] = Field(
+    checks: list[dict[str, Any]] = Field(
         default_factory=list, description="Individual check results"
     )
-    errors: List[str] = Field(default_factory=list)
-    warnings: List[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class TokenUsage(BaseModel):
@@ -74,14 +72,14 @@ class ExecutionMetadata(BaseModel):
 
     execution_id: str = Field(default_factory=lambda: str(uuid4()))
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = Field(default=None)
-    processing_time_ms: Optional[int] = Field(default=None)
+    completed_at: datetime | None = Field(default=None)
+    processing_time_ms: int | None = Field(default=None)
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
-    token_usage_by_skill: Dict[str, TokenUsage] = Field(default_factory=dict)
-    models_used: List[str] = Field(default_factory=list)
-    vendors_used: List[str] = Field(default_factory=list)
-    git_commit: Optional[str] = Field(default=None)
-    schema_version: Optional[str] = Field(default=None)
+    token_usage_by_skill: dict[str, TokenUsage] = Field(default_factory=dict)
+    models_used: list[str] = Field(default_factory=list)
+    vendors_used: list[str] = Field(default_factory=list)
+    git_commit: str | None = Field(default=None)
+    schema_version: str | None = Field(default=None)
 
 
 class ExecutionResponse(BaseModel):
@@ -89,13 +87,13 @@ class ExecutionResponse(BaseModel):
 
     status: ExecutionStatus = Field(..., description="Execution status")
     skill_name: str = Field(..., description="Skill name used")
-    data: Optional[Dict[str, Any]] = Field(default=None, description="Extracted data")
-    validation: Optional[ValidationResult] = Field(default=None)
+    data: dict[str, Any] | None = Field(default=None, description="Extracted data")
+    validation: ValidationResult | None = Field(default=None)
     metadata: ExecutionMetadata = Field(default_factory=ExecutionMetadata)
-    skill_results: List["SkillExecutionResult"] = Field(
+    skill_results: list["SkillExecutionResult"] = Field(
         default_factory=list, description="Individual skill results"
     )
-    error: Optional[str] = Field(default=None, description="Error message if failed")
+    error: str | None = Field(default=None, description="Error message if failed")
 
 
 class BatchStatus(str, Enum):
@@ -115,12 +113,12 @@ class BatchExecutionResponse(BaseModel):
     batch_id: str = Field(..., description="Anthropic batch ID")
     status: BatchStatus = Field(..., description="Batch processing status")
     total_documents: int = Field(..., description="Number of documents in batch")
-    results: Optional[Dict[str, ExecutionResponse]] = Field(
+    results: dict[str, ExecutionResponse] | None = Field(
         default=None, description="Results keyed by document ID (when completed)"
     )
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = Field(default=None)
-    request_counts: Optional[Dict[str, int]] = Field(
+    completed_at: datetime | None = Field(default=None)
+    request_counts: dict[str, int] | None = Field(
         default=None, description="Anthropic batch request counts"
     )
 

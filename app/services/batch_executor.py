@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timezone
 from threading import Lock
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.core.config import Settings, get_settings
 from app.models.execution import (
@@ -15,7 +15,6 @@ from app.models.execution import (
     ExecutionStatus,
     TokenUsage,
 )
-from app.services.cosmosdb import get_cosmosdb_service
 from app.services.llm_client import AnthropicClient, LLMClientError, LLMClientFactory
 from app.services.skill_registry import SkillRegistry, get_registry
 
@@ -39,7 +38,7 @@ class BatchMetadata:
         model: str,
         vendor: str,
         created_at: datetime,
-        custom_id_to_doc_skill: Dict[str, Dict[str, str]],
+        custom_id_to_doc_skill: dict[str, dict[str, str]],
     ):
         self.batch_id = batch_id
         self.skill_name = skill_name
@@ -55,15 +54,15 @@ class BatchExecutor:
 
     def __init__(
         self,
-        registry: Optional[SkillRegistry] = None,
-        settings: Optional[Settings] = None,
+        registry: SkillRegistry | None = None,
+        settings: Settings | None = None,
     ):
         self.registry = registry or get_registry()
         self.settings = settings or get_settings()
-        self._batches: Dict[str, BatchMetadata] = {}
+        self._batches: dict[str, BatchMetadata] = {}
         self._lock = Lock()
 
-    def _get_anthropic_client(self, model: Optional[str] = None) -> AnthropicClient:
+    def _get_anthropic_client(self, model: str | None = None) -> AnthropicClient:
         """Get an AnthropicClient instance.
 
         Args:
@@ -112,7 +111,7 @@ class BatchExecutor:
 
         # Build batch requests: one per (document, skill) pair
         batch_requests: list[tuple[str, str, str, float, int]] = []
-        custom_id_to_doc_skill: Dict[str, Dict[str, str]] = {}
+        custom_id_to_doc_skill: dict[str, dict[str, str]] = {}
 
         for doc in request.documents:
             for skill in skills:
@@ -224,7 +223,7 @@ class BatchExecutor:
         client: AnthropicClient,
         batch_id: str,
         metadata: BatchMetadata,
-    ) -> Dict[str, ExecutionResponse]:
+    ) -> dict[str, ExecutionResponse]:
         """Fetch batch results and group by document ID.
 
         Args:
@@ -238,8 +237,8 @@ class BatchExecutor:
         raw_results = await client.get_batch_results(batch_id)
 
         # Group results by document_id
-        doc_results: Dict[str, Dict[str, Any]] = {}
-        doc_token_usage: Dict[str, Dict[str, TokenUsage]] = {}
+        doc_results: dict[str, dict[str, Any]] = {}
+        doc_token_usage: dict[str, dict[str, TokenUsage]] = {}
 
         for custom_id, (text, usage) in raw_results.items():
             mapping = metadata.custom_id_to_doc_skill.get(custom_id)
@@ -266,13 +265,13 @@ class BatchExecutor:
             doc_token_usage[doc_id][skill_id] = usage
 
         # Build ExecutionResponse per document
-        responses: Dict[str, ExecutionResponse] = {}
+        responses: dict[str, ExecutionResponse] = {}
         for doc_id in metadata.document_ids:
             skill_data = doc_results.get(doc_id, {})
             skill_usage = doc_token_usage.get(doc_id, {})
 
             # Merge all skill results into a single data dict
-            merged_data: Dict[str, Any] = {}
+            merged_data: dict[str, Any] = {}
             for skill_id, data in skill_data.items():
                 if isinstance(data, dict):
                     merged_data.update(data)
@@ -301,21 +300,10 @@ class BatchExecutor:
                 metadata=exec_metadata,
             )
 
-        # Store each per-document result in CosmosDB (fire-and-forget)
-        cosmosdb = get_cosmosdb_service()
-        if cosmosdb:
-            for doc_id, resp in responses.items():
-                await cosmosdb.store_execution_result(
-                    resp,
-                    source="batch",
-                    document_id=doc_id,
-                    batch_id=batch_id,
-                )
-
         return responses
 
 
-_batch_executor: Optional[BatchExecutor] = None
+_batch_executor: BatchExecutor | None = None
 
 
 def get_batch_executor() -> BatchExecutor:

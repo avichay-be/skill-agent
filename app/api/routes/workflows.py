@@ -15,7 +15,6 @@ from app.models.workflow import (
     WorkflowExecutionResponse,
     WorkflowListResponse,
 )
-from app.services.cosmosdb import get_cosmosdb_service
 from app.services.skill_registry import SkillRegistry, get_registry
 from app.services.workflow_executor import WorkflowExecutor, get_workflow_executor
 
@@ -157,12 +156,6 @@ async def execute_workflow(
 
     response = await executor.execute(workflow_request)
 
-    # Store result in CosmosDB (fire-and-forget)
-    if workflow_request.save_to_cosmos:
-        cosmosdb = get_cosmosdb_service()
-        if cosmosdb:
-            await cosmosdb.store_workflow_result(response)
-
     return response
 
 
@@ -188,7 +181,7 @@ async def execute_workflow_from_file(
     model: Annotated[str | None, Form(description="Override default model")] = None,
     save_to_cosmos: Annotated[
         bool, Form(description="Whether to persist result to CosmosDB")
-    ] = True,
+    ] = False,
     _api_key: ApiKeyDep = None,  # type: ignore[assignment]
     registry: Annotated[SkillRegistry, Depends(get_registry)] = None,  # type: ignore[assignment]
     executor: Annotated[WorkflowExecutor, Depends(get_workflow_executor)] = None,  # type: ignore[assignment]

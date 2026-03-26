@@ -1,0 +1,7 @@
+interface:
+  display_name: "DevOps Init"
+  short_description: "Bootstrap and verify Azure CI/CD"
+  default_prompt: "Use $devops-init to bootstrap or audit Azure Container Apps CI/CD for this repository."
+
+policy:
+  allow_implicit_invocation: true

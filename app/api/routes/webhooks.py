@@ -3,7 +3,7 @@
 import hashlib
 import hmac
 import logging
-from typing import Annotated, List, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
@@ -23,8 +23,8 @@ class WebhookResponse(BaseModel):
 
     status: str
     message: str
-    affected_schemas: List[str] = []
-    new_commit: Optional[str] = None
+    affected_schemas: list[str] = []
+    new_commit: str | None = None
 
 
 def verify_github_signature(
@@ -67,8 +67,8 @@ async def handle_git_webhook(
     request: Request,
     registry: Annotated[SkillRegistry, Depends(get_registry)],
     settings: Annotated[Settings, Depends(get_settings)],
-    x_hub_signature_256: Optional[str] = Header(None),
-    x_github_event: Optional[str] = Header(None),
+    x_hub_signature_256: str | None = Header(None),
+    x_github_event: str | None = Header(None),
 ) -> WebhookResponse:
     """Handle incoming Git webhook (GitHub/GitLab push events).
 
@@ -178,6 +178,6 @@ async def force_reload(
 async def get_recent_events(
     registry: Annotated[SkillRegistry, Depends(get_registry)],
     limit: int = 50,
-) -> List[SkillEvent]:
+) -> list[SkillEvent]:
     """Get recent events from the registry."""
     return registry.get_recent_events(limit)

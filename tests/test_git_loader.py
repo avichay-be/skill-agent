@@ -119,6 +119,42 @@ class TestGitLoader:
         with pytest.raises(GitLoaderError, match="Schema config not found"):
             loader.load_schema_config("nonexistent_schema")
 
+    def test_safe_url_redacts_token(self) -> None:
+        """Token should be redacted in _safe_url for safe logging."""
+        from unittest.mock import MagicMock
+
+        settings = MagicMock()
+        settings.github_repo_url = "https://github.com/org/repo"
+        settings.github_token = "ghp_s3cretToken123"
+
+        loader = GitLoader(settings)
+        assert "ghp_s3cretToken123" not in loader._safe_url
+        assert "***" in loader._safe_url
+        assert "github.com" in loader._safe_url
+
+    def test_safe_url_no_token(self) -> None:
+        """When no token is set, _safe_url returns the plain URL."""
+        from unittest.mock import MagicMock
+
+        settings = MagicMock()
+        settings.github_repo_url = "https://github.com/org/repo"
+        settings.github_token = None
+
+        loader = GitLoader(settings)
+        assert loader._safe_url == "https://github.com/org/repo"
+
+    def test_clone_url_contains_token(self) -> None:
+        """_get_clone_url should embed the token for HTTPS cloning."""
+        from unittest.mock import MagicMock
+
+        settings = MagicMock()
+        settings.github_repo_url = "https://github.com/org/repo"
+        settings.github_token = "ghp_s3cretToken123"
+
+        loader = GitLoader(settings)
+        clone_url = loader._get_clone_url()
+        assert "ghp_s3cretToken123" in clone_url
+
     def test_no_config_error(self):
         """Test error when no Git URL or local path configured."""
         from unittest.mock import MagicMock, patch

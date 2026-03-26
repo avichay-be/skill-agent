@@ -1,7 +1,7 @@
 """Skills API routes."""
 
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/skills", tags=["skills"])
 async def list_skills(
     _api_key: ApiKeyDep,
     registry: Annotated[SkillRegistry, Depends(get_registry)],
-    schema_id: Optional[str] = Query(None, description="Filter by schema ID"),
+    schema_id: str | None = Query(None, description="Filter by schema ID"),
 ) -> SkillListResponse:
     """List all skills or filter by schema."""
     skills = registry.list_skills(schema_id)
@@ -35,7 +35,7 @@ async def get_skill(
     skill_id: str,
     _api_key: ApiKeyDep,
     registry: Annotated[SkillRegistry, Depends(get_registry)],
-    schema_id: Optional[str] = Query(None, description="Schema to search in"),
+    schema_id: str | None = Query(None, description="Schema to search in"),
 ) -> Skill:
     """Get a specific skill by ID.
 

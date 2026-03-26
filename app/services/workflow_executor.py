@@ -5,10 +5,8 @@ import logging
 import re
 import time
 from datetime import datetime, timezone
-from typing import Optional
 from uuid import uuid4
 
-from app.core.config import get_settings
 from app.models.execution import ExecutionRequest, ExecutionResponse, ExecutionStatus, TokenUsage
 from app.models.workflow import (
     LoadedWorkflow,
@@ -33,7 +31,7 @@ class WorkflowExecutorError(Exception):
 class WorkflowExecutor:
     """Executes workflows by chaining schema executions sequentially."""
 
-    def __init__(self, registry: Optional[SkillRegistry] = None) -> None:
+    def __init__(self, registry: SkillRegistry | None = None) -> None:
         self.registry = registry or get_registry()
 
     def resolve_workflow(self, request: WorkflowExecutionRequest) -> LoadedWorkflow:
@@ -110,8 +108,6 @@ class WorkflowExecutor:
         Returns:
             WorkflowExecutionResponse with all step results.
         """
-        settings = get_settings()
-
         loaded_workflow = self.resolve_workflow(request)
         config = loaded_workflow.config
         execution_id = str(uuid4())
@@ -120,12 +116,12 @@ class WorkflowExecutor:
 
         step_results: list[WorkflowStepResult] = []
         current_doc = request.document
-        last_successful_data: Optional[dict[str, object]] = None
+        last_successful_data: dict[str, object] | None = None
         total_input_tokens = 0
         total_output_tokens = 0
         total_total_tokens = 0
         final_status = WorkflowExecutionStatus.COMPLETED
-        error_msg: Optional[str] = None
+        error_msg: str | None = None
 
         logger.info(
             f"Starting workflow '{config.workflow_id}' ({config.name}), "
@@ -148,14 +144,9 @@ class WorkflowExecutor:
             )
 
             try:
-                if settings.use_langgraph:
-                    from app.services.graph_executor import get_graph_executor
+                from app.services.graph_executor import get_graph_executor
 
-                    response = await get_graph_executor().execute(exec_request)
-                else:
-                    from app.services.executor import get_executor
-
-                    response = await get_executor().execute(exec_request)
+                response = await get_graph_executor().execute(exec_request)
             except Exception as e:
                 logger.error(f"Workflow step '{step.step_id}' raised exception: {e}")
                 response = ExecutionResponse(

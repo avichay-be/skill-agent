@@ -1,7 +1,7 @@
 """Application configuration using Pydantic Settings."""
 
 from functools import lru_cache
-from typing import List, Literal, Optional
+from typing import Literal
 
 from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -29,36 +29,36 @@ class Settings(BaseSettings):
 
     @computed_field  # type: ignore[misc]
     @property
-    def api_keys(self) -> List[str]:
+    def api_keys(self) -> list[str]:
         """Parse comma-separated API keys."""
         return [k.strip() for k in self.api_keys_str.split(",") if k.strip()]
 
     # GitHub settings
     github_repo_url: str = ""
-    github_token: Optional[str] = None
+    github_token: str | None = None
     github_branch: str = "main"
     skills_base_path: str = ""  # Path within repo where skills live (empty = root)
 
     # Local skills path (for development or local-only mode)
-    local_skills_path: Optional[str] = None
+    local_skills_path: str | None = None
 
     # Workflows path (separate from skills-library, defaults to ./workflows)
     workflows_path: str = "./workflows"
 
     # LLM settings
     default_vendor: str = "gemini"
-    default_model: Optional[str] = "gemini-3-flash-preview"
+    default_model: str | None = "gemini-3-flash-preview"
 
     # Anthropic
-    anthropic_api_key: Optional[str] = None
+    anthropic_api_key: str | None = None
     anthropic_model: str = "claude-sonnet-4-20250514"
 
     # OpenAI
-    openai_api_key: Optional[str] = None
+    openai_api_key: str | None = None
     openai_model: str = "gpt-4o"
 
     # Google Gemini
-    google_api_key: Optional[str] = None
+    google_api_key: str | None = None
     gemini_model: str = "gemini-3-flash-preview"
 
     # Execution settings
@@ -66,8 +66,7 @@ class Settings(BaseSettings):
     default_retry_count: int = 2
     max_parallel_skills: int = 10
 
-    # LangGraph settings
-    use_langgraph: bool = True  # Feature flag to enable/disable LangGraph
+    # Execution graph settings
     checkpoint_backend: Literal["memory", "sqlite"] = "sqlite"
     checkpoint_db_path: str = "./data/checkpoints.db"
     checkpoint_cleanup_days: int = 7
@@ -77,8 +76,8 @@ class Settings(BaseSettings):
     enable_dynamic_selection: bool = False  # Experimental feature
 
     # Webhook settings
-    webhook_secret: Optional[str] = None  # For verifying incoming webhooks
-    outbound_webhooks: List[str] = Field(default_factory=list)
+    webhook_secret: str | None = None  # For verifying incoming webhooks
+    outbound_webhooks: list[str] = Field(default_factory=list)
 
     # CORS settings
     allowed_origins_str: str = Field(
@@ -88,16 +87,9 @@ class Settings(BaseSettings):
 
     @computed_field  # type: ignore[misc]
     @property
-    def allowed_origins(self) -> List[str]:
+    def allowed_origins(self) -> list[str]:
         """Parse comma-separated allowed origins."""
         return [o.strip() for o in self.allowed_origins_str.split(",") if o.strip()]
-
-    # CI/CD subagent settings
-    enable_cicd_subagent: bool = False  # Feature flag
-    cicd_llm_vendor: str = "gemini"  # LLM vendor for CI/CD analysis
-    cicd_llm_model: Optional[str] = None  # Model override (uses vendor default if None)
-    cicd_watched_branches: List[str] = Field(default_factory=lambda: ["main"])  # Branches to watch
-    cicd_auto_approve: bool = False  # Skip human review (not recommended)
 
     # File upload validation settings
     max_upload_size_mb: int = 10  # Max file upload size in MB
@@ -108,7 +100,7 @@ class Settings(BaseSettings):
 
     @computed_field  # type: ignore[misc]
     @property
-    def allowed_file_extensions(self) -> List[str]:
+    def allowed_file_extensions(self) -> list[str]:
         """Parse comma-separated allowed file extensions."""
         return [
             ext.strip().lower()
@@ -122,8 +114,8 @@ class Settings(BaseSettings):
 
     # CosmosDB settings
     enable_cosmosdb: bool = False  # Feature flag for execution result storage
-    cosmosdb_endpoint: Optional[str] = None
-    cosmosdb_key: Optional[str] = None
+    cosmosdb_endpoint: str | None = None
+    cosmosdb_key: str | None = None
     cosmosdb_database: str = "skill-agent"
     cosmosdb_container: str = "executions"
 
