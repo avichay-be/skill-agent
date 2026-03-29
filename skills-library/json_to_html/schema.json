@@ -1,0 +1,40 @@
+{
+  "schema_id": "json_to_html",
+  "version": "1.0.0",
+  "name": "JSON to HTML Page Generator",
+  "description": "Converts arbitrary JSON data into a complete, styled HTML page that visually displays all data",
+  "output_model": "models.HtmlPageResult",
+
+  "skills": [
+    {
+      "id": "generate_html_page",
+      "name": "Generate HTML Page from JSON",
+      "prompt_file": "prompts/generate_html.md",
+      "parallel_group": 1,
+      "timeout_seconds": 120,
+      "retry_count": 1,
+      "output_fields": ["html_content", "title", "data_fields_count"],
+      "temperature": 0.2
+    }
+  ],
+
+  "post_processing": {
+    "merge_strategy": "merge_deep",
+    "validation_rules": [
+      {
+        "id": "html_content_required",
+        "name": "HTML content is required",
+        "type": "required",
+        "params": {"fields": ["html_content"]},
+        "severity": "error"
+      },
+      {
+        "id": "title_required",
+        "name": "Page title is required",
+        "type": "required",
+        "params": {"fields": ["title"]},
+        "severity": "error"
+      }
+    ]
+  }
+}
