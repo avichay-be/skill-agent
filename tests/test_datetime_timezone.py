@@ -27,6 +27,11 @@ def test_skill_graph_state_started_at_is_timezone_aware():
         document="test document",
         schema_id="test_schema",
         execution_id="test_execution_id",
+        vendor=None,
+        model=None,
+        validation_result=None,
+        human_feedback=None,
+        next_action=None,
     )
     assert state.started_at is not None
     assert state.started_at.tzinfo is not None, (

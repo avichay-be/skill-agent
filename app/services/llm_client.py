@@ -5,7 +5,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from app.core.config import Settings, get_settings
 from app.models.execution import TokenUsage
@@ -29,7 +29,7 @@ class BaseLLMClient(ABC):
         document: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-    ) -> Tuple[str, TokenUsage]:
+    ) -> tuple[str, TokenUsage]:
         """Generate response from LLM.
 
         Args:
@@ -50,7 +50,7 @@ class BaseLLMClient(ABC):
         document: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-    ) -> Tuple[Dict[str, Any], TokenUsage]:
+    ) -> tuple[dict[str, Any], TokenUsage]:
         """Generate and parse JSON response.
 
         Args:
@@ -64,7 +64,7 @@ class BaseLLMClient(ABC):
         """
         pass
 
-    def _extract_json_from_text(self, text: str) -> Dict[str, Any]:
+    def _extract_json_from_text(self, text: str) -> dict[str, Any]:
         """Extract JSON from text response, handling code blocks and extra data."""
         # Try to find JSON in code blocks first
         json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
@@ -97,9 +97,9 @@ class BaseLLMClient(ABC):
         )
 
     @staticmethod
-    def _find_largest_json_object(text: str) -> Optional[Dict[str, Any]]:
+    def _find_largest_json_object(text: str) -> dict[str, Any] | None:
         """Find the largest valid JSON object in text by scanning for { and parsing."""
-        best: Optional[Dict[str, Any]] = None
+        best: dict[str, Any] | None = None
         best_len = 0
 
         for i, ch in enumerate(text):
@@ -136,7 +136,7 @@ class AnthropicClient(BaseLLMClient):
         document: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-    ) -> Tuple[str, TokenUsage]:
+    ) -> tuple[str, TokenUsage]:
         try:
             response = await self.client.messages.create(
                 model=self.model,
@@ -168,7 +168,7 @@ class AnthropicClient(BaseLLMClient):
         document: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-    ) -> Tuple[Dict[str, Any], TokenUsage]:
+    ) -> tuple[dict[str, Any], TokenUsage]:
         json_prompt = f"{prompt}\n\nRespond with valid JSON only, no markdown or explanations."
         text, usage = await self.generate(json_prompt, document, temperature, max_tokens)
         data = self._extract_json_from_text(text)
@@ -176,7 +176,7 @@ class AnthropicClient(BaseLLMClient):
 
     async def create_batch(
         self,
-        requests: List[Tuple[str, str, str, float, int]],
+        requests: list[tuple[str, str, str, float, int]],
     ) -> str:
         """Submit a batch of message requests to the Anthropic Batch API.
 
@@ -216,7 +216,7 @@ class AnthropicClient(BaseLLMClient):
         except Exception as e:
             raise LLMClientError(f"Anthropic Batch API error: {e}")
 
-    async def get_batch_status(self, batch_id: str) -> Dict[str, Any]:
+    async def get_batch_status(self, batch_id: str) -> dict[str, Any]:
         """Retrieve the current status of a batch.
 
         Args:
@@ -245,7 +245,7 @@ class AnthropicClient(BaseLLMClient):
     async def get_batch_results(
         self,
         batch_id: str,
-    ) -> Dict[str, Tuple[str, TokenUsage]]:
+    ) -> dict[str, tuple[str, TokenUsage]]:
         """Retrieve results from a completed batch.
 
         Args:
@@ -255,7 +255,7 @@ class AnthropicClient(BaseLLMClient):
             Dict of custom_id → (response_text, token_usage).
         """
         try:
-            results: Dict[str, Tuple[str, TokenUsage]] = {}
+            results: dict[str, tuple[str, TokenUsage]] = {}
             async for entry in await self.client.messages.batches.results(batch_id):
                 custom_id = entry.custom_id
                 if entry.result.type == "succeeded":
@@ -301,7 +301,7 @@ class OpenAIClient(BaseLLMClient):
         document: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-    ) -> Tuple[str, TokenUsage]:
+    ) -> tuple[str, TokenUsage]:
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -330,7 +330,7 @@ class OpenAIClient(BaseLLMClient):
         document: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-    ) -> Tuple[Dict[str, Any], TokenUsage]:
+    ) -> tuple[dict[str, Any], TokenUsage]:
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -377,7 +377,7 @@ class GeminiClient(BaseLLMClient):
         document: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-    ) -> Tuple[str, TokenUsage]:
+    ) -> tuple[str, TokenUsage]:
         try:
             model = self.genai.GenerativeModel(  # type: ignore[attr-defined]
                 self.model,
@@ -414,7 +414,7 @@ class GeminiClient(BaseLLMClient):
         document: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-    ) -> Tuple[Dict[str, Any], TokenUsage]:
+    ) -> tuple[dict[str, Any], TokenUsage]:
         json_prompt = f"{prompt}\n\nRespond with valid JSON only, no markdown or explanations."
         text, usage = await self.generate(json_prompt, document, temperature, max_tokens)
         data = self._extract_json_from_text(text)
@@ -431,8 +431,8 @@ class LLMClientFactory:
     def get_client(
         cls,
         vendor: str,
-        model: Optional[str] = None,
-        settings: Optional[Settings] = None,
+        model: str | None = None,
+        settings: Settings | None = None,
     ) -> BaseLLMClient:
         """Get or create an LLM client.
 

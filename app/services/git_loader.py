@@ -5,7 +5,7 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from git import Repo
 from git.exc import GitCommandError, InvalidGitRepositoryError
@@ -27,24 +27,41 @@ class GitLoaderError(Exception):
 class GitLoader:
     """Loads skills from a Git repository."""
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
-        self._repo: Optional[Repo] = None
-        self._local_path: Optional[Path] = None
+        self._repo: Repo | None = None
+        self._local_path: Path | None = None
         self._is_temp_dir = False
         self._is_direct_skills_path = False
 
     @property
-    def local_path(self) -> Optional[Path]:
+    def local_path(self) -> Path | None:
         """Get local repository path."""
         return self._local_path
 
     @property
-    def current_commit(self) -> Optional[str]:
+    def current_commit(self) -> str | None:
         """Get current HEAD commit SHA."""
         if self._repo:
             return self._repo.head.commit.hexsha
         return None
+
+    @property
+    def _safe_url(self) -> str:
+        """Return the repo URL with any token redacted for safe logging."""
+        url = self.settings.github_repo_url
+        token = self.settings.github_token
+        if token:
+            # Redact token whether it appears in the base URL or the clone URL
+            url = url.replace(token, "***")
+            # Also strip any token@ patterns from HTTPS URLs
+            if f"{token}@" not in url and "github.com" in url:
+                url = (
+                    url.replace("https://", "https://***@", 1)
+                    if url.startswith("https://")
+                    else url
+                )
+        return url
 
     def _get_clone_url(self) -> str:
         """Build clone URL with authentication if token provided."""
@@ -56,9 +73,9 @@ class GitLoader:
                 url = url.replace("https://", f"https://{self.settings.github_token}@")
         return url
 
-    def _get_local_skills_path(self) -> Optional[Path]:
+    def _get_local_skills_path(self) -> Path | None:
         """Resolve a local skills directory when one is available."""
-        candidates: List[Path] = []
+        candidates: list[Path] = []
 
         if self.settings.local_skills_path:
             candidates.append(Path(self.settings.local_skills_path))
@@ -71,7 +88,7 @@ class GitLoader:
 
         return None
 
-    def clone_or_pull(self, target_path: Optional[str] = None) -> str:
+    def clone_or_pull(self, target_path: str | None = None) -> str:
         """Clone repository or pull latest changes.
 
         Args:
@@ -124,7 +141,7 @@ class GitLoader:
                 origin.pull(self.settings.github_branch)
             else:
                 # Clone fresh
-                logger.info(f"Cloning {self.settings.github_repo_url}")
+                logger.info(f"Cloning {self._safe_url}")
                 self._local_path.mkdir(parents=True, exist_ok=True)
                 self._repo = Repo.clone_from(
                     self._get_clone_url(),
@@ -159,7 +176,7 @@ class GitLoader:
             raise GitLoaderError(f"Skills base path not found: {base}")
         return base
 
-    def list_schemas(self) -> List[str]:
+    def list_schemas(self) -> list[str]:
         """List all available schema IDs (directory names)."""
         base = self.get_skills_base_path()
         schemas = []
@@ -170,7 +187,7 @@ class GitLoader:
 
         return sorted(schemas)
 
-    def load_schema_config(self, schema_id: str) -> Tuple[SchemaConfig, Path]:
+    def load_schema_config(self, schema_id: str) -> tuple[SchemaConfig, Path]:
         """Load schema configuration from schema.json.
 
         Args:
@@ -221,7 +238,7 @@ class GitLoader:
         with open(prompt_path, "r", encoding="utf-8") as f:
             return f.read()
 
-    def load_full_schema(self, schema_id: str) -> Dict[str, Skill]:
+    def load_full_schema(self, schema_id: str) -> dict[str, Skill]:
         """Load a schema with all its skills fully populated.
 
         Args:
@@ -232,7 +249,7 @@ class GitLoader:
         """
         config, schema_dir = self.load_schema_config(schema_id)
         commit = self.current_commit or "unknown"
-        skills: Dict[str, Skill] = {}
+        skills: dict[str, Skill] = {}
 
         for skill_config in config.skills:
             prompt = self.load_skill_prompt(schema_dir, skill_config.prompt_file)
@@ -257,7 +274,7 @@ class GitLoader:
         if workflows_path.is_absolute():
             return workflows_path
 
-        candidates: List[Path] = []
+        candidates: list[Path] = []
 
         if self._local_path:
             if self._is_direct_skills_path:
@@ -274,7 +291,7 @@ class GitLoader:
 
         return candidates[0]
 
-    def list_workflows(self) -> List[str]:
+    def list_workflows(self) -> list[str]:
         """List all available workflow IDs (JSON file stems in workflows/ dir)."""
         workflows_dir = self._get_workflows_dir()
 
@@ -287,7 +304,7 @@ class GitLoader:
             if item.is_file() and item.suffix == ".json"
         )
 
-    def load_workflow_config(self, workflow_id: str) -> Tuple[WorkflowConfig, Path]:
+    def load_workflow_config(self, workflow_id: str) -> tuple[WorkflowConfig, Path]:
         """Load workflow configuration from a JSON file.
 
         Args:
@@ -314,7 +331,7 @@ class GitLoader:
         except Exception as e:
             raise GitLoaderError(f"Failed to load workflow config: {e}") from e
 
-    def get_changed_schemas(self, changed_files: List[str]) -> List[str]:
+    def get_changed_schemas(self, changed_files: list[str]) -> list[str]:
         """Determine which schemas were affected by file changes.
 
         Args:
@@ -349,8 +366,8 @@ class GitLoader:
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
         exc_tb: Any,
     ) -> None:
         """Context manager exit with cleanup."""

@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.core.config import get_settings
 from app.models.execution import ExecutionResponse
@@ -62,8 +62,8 @@ class CosmosDBService:
         self,
         response: ExecutionResponse,
         source: str = "realtime",
-        document_id: Optional[str] = None,
-        batch_id: Optional[str] = None,
+        document_id: str | None = None,
+        batch_id: str | None = None,
     ) -> None:
         """Persist an ExecutionResponse to CosmosDB.
 
@@ -92,9 +92,9 @@ class CosmosDBService:
     def _build_document(
         response: ExecutionResponse,
         source: str,
-        document_id: Optional[str],
-        batch_id: Optional[str],
-    ) -> Dict[str, Any]:
+        document_id: str | None,
+        batch_id: str | None,
+    ) -> dict[str, Any]:
         """Build a CosmosDB document from an ExecutionResponse."""
         return {
             "id": response.metadata.execution_id,
@@ -126,7 +126,7 @@ class CosmosDBService:
             return
 
         try:
-            doc: Dict[str, Any] = {
+            doc: dict[str, Any] = {
                 "id": response.metadata.execution_id,
                 "type": "workflow_execution",
                 "workflow_id": response.workflow_id,
@@ -160,10 +160,10 @@ class CosmosDBService:
                 self._initialized = False
 
 
-_cosmosdb_service: Optional[CosmosDBService] = None
+_cosmosdb_service: CosmosDBService | None = None
 
 
-def get_cosmosdb_service() -> Optional[CosmosDBService]:
+def get_cosmosdb_service() -> CosmosDBService | None:
     """Get the CosmosDB service singleton (None if not enabled)."""
     return _cosmosdb_service
 

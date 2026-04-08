@@ -137,6 +137,11 @@ class TestPydanticModelsBehavior:
             document="test",
             schema_id="test_schema",
             execution_id="exec-123",
+            vendor=None,
+            model=None,
+            validation_result=None,
+            human_feedback=None,
+            next_action=None,
         )
         assert state.document == "test"
         assert state.execution_id == "exec-123"

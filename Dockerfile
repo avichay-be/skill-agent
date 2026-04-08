@@ -22,7 +22,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt || \
-    pip install --no-cache-dir fastapi uvicorn pydantic pydantic-settings httpx gitpython anthropic openai google-generativeai python-multipart aiofiles
+    pip install --no-cache-dir fastapi uvicorn pydantic pydantic-settings httpx gitpython anthropic openai google-generativeai python-multipart aiofiles slowapi pyyaml langgraph langchain-core langgraph-checkpoint-sqlite
 
 # Final stage
 FROM python:3.11-slim
@@ -44,6 +44,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY app ./app
 COPY skills-library ./skills-library
 COPY workflows ./workflows
+
+# Ensure SQLite checkpoint directory exists
+RUN mkdir -p /app/data
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && \

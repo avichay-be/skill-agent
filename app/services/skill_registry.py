@@ -1,11 +1,13 @@
 """Skill Registry - In-memory storage with dynamic model loading."""
 
+from __future__ import annotations
+
 import importlib.util
 import logging
 import sys
 from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -28,7 +30,7 @@ class RegistryError(Exception):
 class SkillRegistry:
     """In-memory registry for loaded schemas and skills."""
 
-    _instance: Optional["SkillRegistry"] = None
+    _instance: "SkillRegistry" | None = None
     _lock = Lock()
 
     _initialized: bool = False
@@ -42,16 +44,16 @@ class SkillRegistry:
                     cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         if self._initialized:
             return
 
         self.settings = settings or get_settings()
-        self._schemas: Dict[str, LoadedSchema] = {}
-        self._workflows: Dict[str, LoadedWorkflow] = {}
-        self._git_loader: Optional[GitLoader] = None
-        self._current_commit: Optional[str] = None
-        self._events: List[SkillEvent] = []
+        self._schemas: dict[str, LoadedSchema] = {}
+        self._workflows: dict[str, LoadedWorkflow] = {}
+        self._git_loader: GitLoader | None = None
+        self._current_commit: str | None = None
+        self._events: list[SkillEvent] = []
         self._initialized = True
 
         logger.info("SkillRegistry initialized")
@@ -71,9 +73,9 @@ class SkillRegistry:
     def _emit_event(
         self,
         event_type: EventType,
-        schema_id: Optional[str] = None,
-        skill_id: Optional[str] = None,
-        payload: Optional[Dict[str, Any]] = None,
+        schema_id: str | None = None,
+        skill_id: str | None = None,
+        payload: dict[str, Any] | None = None,
     ) -> SkillEvent:
         """Emit and store an event."""
         event = SkillEvent(
@@ -87,11 +89,11 @@ class SkillRegistry:
         logger.debug(f"Event emitted: {event.type} for schema={schema_id}, skill={skill_id}")
         return event
 
-    def get_recent_events(self, limit: int = 50) -> List[SkillEvent]:
+    def get_recent_events(self, limit: int = 50) -> list[SkillEvent]:
         """Get recent events."""
         return self._events[-limit:]
 
-    def initialize(self, repo_path: Optional[str] = None) -> str:
+    def initialize(self, repo_path: str | None = None) -> str:
         """Initialize registry by loading skills from Git or local path.
 
         Args:
@@ -167,7 +169,7 @@ class SkillRegistry:
         logger.info(f"Loaded schema '{schema_id}' v{config.version} with {len(skills)} skills")
         return loaded_schema
 
-    def _load_output_model(self, schema_dir: Path, model_path: str) -> Optional[Type[BaseModel]]:
+    def _load_output_model(self, schema_dir: Path, model_path: str) -> type[BaseModel] | None:
         """Dynamically load a Pydantic model from the skills directory.
 
         Args:
@@ -274,7 +276,7 @@ class SkillRegistry:
         self._git_loader.clone_or_pull()  # Ensure latest
         return self._load_schema(schema_id)
 
-    def reload_affected_schemas(self, changed_files: List[str]) -> List[str]:
+    def reload_affected_schemas(self, changed_files: list[str]) -> list[str]:
         """Reload only schemas affected by file changes.
 
         Args:
@@ -326,15 +328,15 @@ class SkillRegistry:
 
     # Query methods
 
-    def get_workflow(self, workflow_id: str) -> Optional[LoadedWorkflow]:
+    def get_workflow(self, workflow_id: str) -> LoadedWorkflow | None:
         """Get a loaded workflow by ID."""
         return self._workflows.get(workflow_id)
 
-    def list_workflows(self) -> List[WorkflowConfig]:
+    def list_workflows(self) -> list[WorkflowConfig]:
         """List all loaded workflow configs."""
         return [w.config for w in self._workflows.values()]
 
-    def get_schema(self, schema_id: str) -> Optional[LoadedSchema]:
+    def get_schema(self, schema_id: str) -> LoadedSchema | None:
         """Get a loaded schema by ID."""
         return self._schemas.get(schema_id)
 
@@ -345,20 +347,20 @@ class SkillRegistry:
             raise RegistryError(f"Schema '{schema_id}' not found")
         return schema
 
-    def list_schemas(self) -> List[SchemaConfig]:
+    def list_schemas(self) -> list[SchemaConfig]:
         """List all loaded schema configs."""
         return [s.config for s in self._schemas.values()]
 
-    def get_skill(self, schema_id: str, skill_id: str) -> Optional[Skill]:
+    def get_skill(self, schema_id: str, skill_id: str) -> Skill | None:
         """Get a specific skill."""
         schema = self._schemas.get(schema_id)
         if schema:
             return schema.skills.get(skill_id)
         return None
 
-    def list_skills(self, schema_id: Optional[str] = None) -> List[Skill]:
+    def list_skills(self, schema_id: str | None = None) -> list[Skill]:
         """List skills, optionally filtered by schema."""
-        skills: List[Skill] = []
+        skills: list[Skill] = []
 
         if schema_id:
             schema = self._schemas.get(schema_id)
@@ -370,7 +372,7 @@ class SkillRegistry:
 
         return skills
 
-    def get_active_skills(self, schema_id: str) -> List[Skill]:
+    def get_active_skills(self, schema_id: str) -> list[Skill]:
         """Get only active skills for a schema."""
         schema = self._schemas.get(schema_id)
         if not schema:
@@ -378,7 +380,7 @@ class SkillRegistry:
         return [s for s in schema.skills.values() if s.config.status == SkillStatus.ACTIVE]
 
     @property
-    def current_commit(self) -> Optional[str]:
+    def current_commit(self) -> str | None:
         """Get current git commit."""
         return self._current_commit
 

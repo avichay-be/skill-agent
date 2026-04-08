@@ -2,15 +2,24 @@
 <!-- CONTRACT: This file tracks workflow progress. Update task status as work completes. -->
 
 ## Current Workflow
-BUILD
+BUILD (Refactoring)
 
 ## Tasks
 - [x] Phase 1: Security Fixes (CORS, rate limiting, timeouts)
 - [x] Phase 2: Fix datetime.utcnow() deprecation
 - [x] Phase 3: Migrate Pydantic v1 Config to ConfigDict
 - [x] Phase 4: Add file upload validation (size + type)
+- [x] Refactoring Plan: docs/plans/2026-03-19-refactoring-plan.md (7 phases, 21 tasks)
+- [x] Refactoring Phase 1: Extract shared execution logic into execution_utils.py
+- [x] Refactoring Phase 2: Remove legacy executor and USE_LANGGRAPH toggle
+- [x] Refactoring Phase 3: Fix infra issues (SQLite dir, git tokens, dead code)
+- [x] Refactoring Phase 4: Add structured logging and observability
+- [ ] Refactoring Phase 5: Improve test coverage to 75%+ (partial: langgraph scripts converted)
+- [x] Refactoring Phase 6: Code quality (built-in generics across 29 files)
+- [x] Refactoring Phase 7: Dockerfile fallback deps + checkpoint dir
 
 ## Completed
+- [x] Refactoring Plan Created: docs/plans/2026-03-19-refactoring-plan.md (7 phases, 21 tasks, 8/10 confidence)
 - [x] Phase 4 File Upload Validation: Added size + type validation to /execute/file
   - app/core/config.py: MAX_UPLOAD_SIZE_MB (10), ALLOWED_FILE_EXTENSIONS (.txt,.md,.json,.csv,.xml,.html,.pdf)
   - app/api/routes/execute.py: Type check (415) before read, size check (413) before decode
@@ -59,5 +68,14 @@ BUILD
 - TDD RED phase (remfix): 8 new tests for security fixes → exit 1 (all failed, features missing)
 - TDD GREEN phase (remfix): `pytest tests/test_security.py -v --no-cov` → exit 0 (21/21 passed)
 
+## Verification
+- **Refactoring Phases 5-7 Verification: PASS**
+- All tests: 238 passed, 13 failed + 24 errors (pre-existing httpx/TestClient compat issue)
+- mypy: Success (36 source files, no issues)
+- ruff check: All checks passed
+- ruff format: 62 files already formatted
+- Code review: APPROVE (92% confidence, 0 critical, 1 high non-blocking)
+- Silent failure hunt: 0 critical, 1 high (HTTP_413 constant — not actually deprecated in installed starlette version)
+
 ## Last Updated
-2026-02-09 (Phase 4 File Upload Validation Complete)
+2026-03-19 (Refactoring Phases 5-7 Executed)

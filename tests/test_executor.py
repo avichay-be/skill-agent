@@ -1,17 +1,22 @@
-"""Tests for Skill Executor."""
+"""Tests for shared execution utilities."""
 
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.models.execution import ExecutionRequest, ExecutionStatus, TokenUsage
+from app.models.execution import TokenUsage
 from app.models.schema import MergeStrategy
-from app.services.executor import SkillExecutor
+from app.services.execution_utils import (
+    execute_single_skill,
+    get_default_model_for_vendor,
+    get_nested_value,
+    merge_results,
+)
 
 
-class TestSkillExecutor:
-    """Tests for SkillExecutor class."""
+class TestExecutionUtils:
+    """Tests for shared execution helpers."""
 
     @pytest.fixture
     def mock_registry(self, temp_skills_dir: Path):
@@ -52,13 +57,14 @@ class TestSkillExecutor:
             )
         )
 
-        with patch("app.services.executor.LLMClientFactory") as factory:
+        with patch("app.services.execution_utils.LLMClientFactory") as factory:
             factory.get_client.return_value = mock_client
             yield factory
 
     @pytest.mark.asyncio
-    async def test_execute_success(self, mock_registry, mock_llm_factory):
-        """Test successful execution."""
+    async def test_execute_single_skill_success(self, mock_registry, mock_llm_factory):
+        """Test successful single-skill execution."""
+        skill = mock_registry.get_schema_or_raise("test_schema").get_active_skills()[0]
         settings = MagicMock()
         settings.default_vendor = "anthropic"
         settings.default_model = None
@@ -66,41 +72,22 @@ class TestSkillExecutor:
         settings.openai_model = "gpt-4o"
         settings.gemini_model = "gemini-2.0-flash"
 
-        executor = SkillExecutor(registry=mock_registry, settings=settings)
-
-        request = ExecutionRequest(
+        result = await execute_single_skill(
+            skill=skill,
             document="Test document content",
-            skill_name="test_schema",
+            default_vendor="anthropic",
+            default_model=None,
+            settings=settings,
         )
 
-        response = await executor.execute(request)
-
-        assert response.status in [ExecutionStatus.COMPLETED, ExecutionStatus.PARTIAL]
-        assert response.skill_name == "test_schema"
-        assert response.metadata.processing_time_ms >= 0
-
-    @pytest.mark.asyncio
-    async def test_execute_schema_not_found(self, mock_registry):
-        """Test execution with non-existent schema."""
-        settings = MagicMock()
-        executor = SkillExecutor(registry=mock_registry, settings=settings)
-
-        request = ExecutionRequest(
-            document="Test",
-            skill_name="nonexistent",
-        )
-
-        response = await executor.execute(request)
-
-        assert response.status == ExecutionStatus.FAILED
-        assert "not found" in response.error.lower()
+        assert result.success is True
+        assert result.skill_id == skill.id
+        assert result.execution_time_ms >= 0
 
     def test_merge_results_first_wins(self):
         """Test merge strategy: first wins."""
         from app.models.schema import LoadedSchema, PostProcessing, SchemaConfig
         from app.models.skill import SkillExecutionResult
-
-        executor = SkillExecutor()
 
         config = SchemaConfig(
             schema_id="test",
@@ -135,7 +122,7 @@ class TestSkillExecutor:
             ),
         ]
 
-        merged = executor._merge_results(results, schema)
+        merged = merge_results(results, schema.config.post_processing.merge_strategy)
 
         assert merged["key"] == "first"  # First wins
         assert merged["unique1"] == "a"
@@ -145,8 +132,6 @@ class TestSkillExecutor:
         """Test merge strategy: last wins."""
         from app.models.schema import LoadedSchema, PostProcessing, SchemaConfig
         from app.models.skill import SkillExecutionResult
-
-        executor = SkillExecutor()
 
         config = SchemaConfig(
             schema_id="test",
@@ -181,7 +166,7 @@ class TestSkillExecutor:
             ),
         ]
 
-        merged = executor._merge_results(results, schema)
+        merged = merge_results(results, schema.config.post_processing.merge_strategy)
 
         assert merged["key"] == "second"  # Last wins
 
@@ -189,8 +174,6 @@ class TestSkillExecutor:
         """Test merge strategy: deep merge."""
         from app.models.schema import LoadedSchema, PostProcessing, SchemaConfig
         from app.models.skill import SkillExecutionResult
-
-        executor = SkillExecutor()
 
         config = SchemaConfig(
             schema_id="test",
@@ -225,7 +208,7 @@ class TestSkillExecutor:
             ),
         ]
 
-        merged = executor._merge_results(results, schema)
+        merged = merge_results(results, schema.config.post_processing.merge_strategy)
 
         assert merged["nested"]["a"] == 1
         assert merged["nested"]["b"] == 2
@@ -233,11 +216,21 @@ class TestSkillExecutor:
 
     def test_get_nested_value(self):
         """Test getting nested values from dict."""
-        executor = SkillExecutor()
-
         data = {"level1": {"level2": {"value": 42}}, "simple": "test"}
 
-        assert executor._get_nested_value(data, "simple") == "test"
-        assert executor._get_nested_value(data, "level1.level2.value") == 42
-        assert executor._get_nested_value(data, "nonexistent") is None
-        assert executor._get_nested_value(data, "level1.nonexistent") is None
+        assert get_nested_value(data, "simple") == "test"
+        assert get_nested_value(data, "level1.level2.value") == 42
+        assert get_nested_value(data, "nonexistent") is None
+        assert get_nested_value(data, "level1.nonexistent") is None
+
+    def test_get_default_model_for_vendor(self):
+        """Test vendor-to-model resolution."""
+        settings = MagicMock(
+            anthropic_model="claude-sonnet-4-20250514",
+            openai_model="gpt-4o",
+            gemini_model="gemini-2.0-flash",
+        )
+
+        assert get_default_model_for_vendor("anthropic", settings) == "claude-sonnet-4-20250514"
+        assert get_default_model_for_vendor("openai", settings) == "gpt-4o"
+        assert get_default_model_for_vendor("gemini", settings) == "gemini-2.0-flash"

@@ -384,8 +384,8 @@ class TestExceptionSanitization:
         get_settings.cache_clear()
 
 
-class TestResumeAndLegacyRateLimits:
-    """Tests for rate limiting on /resume and /legacy endpoints."""
+class TestResumeRateLimits:
+    """Tests for rate limiting on resumable execution endpoints."""
 
     def test_resume_endpoint_has_rate_limit_decorator(self):
         """Test that /execute/resume/{execution_id} endpoint has rate limit decorator."""
@@ -395,14 +395,4 @@ class TestResumeAndLegacyRateLimits:
         # Decorated functions have __wrapped__ attribute
         assert hasattr(resume_execution, "__wrapped__"), (
             "resume_execution endpoint missing rate limit decorator"
-        )
-
-    def test_legacy_endpoint_has_rate_limit_decorator(self):
-        """Test that /execute/legacy endpoint has rate limit decorator."""
-        from app.api.routes.execute import execute_extraction_legacy
-
-        # Check that the function has been wrapped by slowapi
-        # Decorated functions have __wrapped__ attribute
-        assert hasattr(execute_extraction_legacy, "__wrapped__"), (
-            "execute_extraction_legacy endpoint missing rate limit decorator"
         )

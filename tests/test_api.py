@@ -1,6 +1,23 @@
 """Tests for FastAPI endpoints."""
 
 
+class TestRequestIDMiddleware:
+    """Tests for X-Request-ID correlation header."""
+
+    def test_response_includes_generated_request_id(self, app_client):
+        """Every response should include an X-Request-ID header."""
+        response = app_client.get("/health")
+        assert "X-Request-ID" in response.headers
+        # Must look like a UUID4
+        rid = response.headers["X-Request-ID"]
+        assert len(rid) == 36  # UUID4 format: 8-4-4-4-12
+
+    def test_response_echoes_caller_request_id(self, app_client):
+        """When the caller sends X-Request-ID the server should echo it back."""
+        response = app_client.get("/health", headers={"X-Request-ID": "my-trace-123"})
+        assert response.headers["X-Request-ID"] == "my-trace-123"
+
+
 class TestHealthEndpoint:
     """Tests for health check endpoint."""
 

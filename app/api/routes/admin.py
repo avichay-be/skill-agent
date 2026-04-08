@@ -1,7 +1,7 @@
 """Admin API routes for system management."""
 
 import logging
-from typing import Annotated, Any, Dict
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -107,7 +107,7 @@ async def reload_registry(
 async def get_config(
     _api_key: ApiKeyDep,
     settings: Annotated[Settings, Depends(get_settings)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get current configuration (non-sensitive values only)."""
     return {
         "app_name": settings.app_name,

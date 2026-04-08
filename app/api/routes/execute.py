@@ -2,12 +2,12 @@
 
 import json
 import logging
-import os
-from typing import Annotated, Any, AsyncGenerator, Dict, Optional
+from typing import Annotated, Any, AsyncGenerator
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 
+from app.api.file_uploads import read_uploaded_text_file
 from app.core.config import get_settings
 from app.core.rate_limiter import limiter
 from app.core.security import ApiKeyDep
@@ -19,8 +19,6 @@ from app.models.execution import (
     ExecutionStatus,
 )
 from app.services.batch_executor import BatchExecutor, BatchExecutorError, get_batch_executor
-from app.services.cosmosdb import get_cosmosdb_service
-from app.services.executor import SkillExecutor, get_executor
 from app.services.graph_executor import get_graph_executor
 from app.services.skill_registry import SkillRegistry, get_registry
 
@@ -39,17 +37,12 @@ async def execute_extraction(
 ) -> ExecutionResponse:
     """Execute document extraction using specified skill.
 
-    This endpoint uses LangGraph by default if use_langgraph is enabled,
-    otherwise falls back to the legacy SkillExecutor.
-
     Args:
         exec_request: Execution request with document and skill_name.
 
     Returns:
         Extraction results with metadata.
     """
-    settings = get_settings()
-
     # Validate skill exists
     schema = registry.get_schema(exec_request.skill_name)
     if not schema:
@@ -61,17 +54,11 @@ async def execute_extraction(
     # Execute
     logger.info(
         f"Starting extraction with skill '{exec_request.skill_name}', "
-        f"document length: {len(exec_request.document)} chars, "
-        f"using {'LangGraph' if settings.use_langgraph else 'Legacy Executor'}"
+        f"document length: {len(exec_request.document)} chars"
     )
 
-    # Choose executor based on configuration
-    if settings.use_langgraph:
-        graph_executor = get_graph_executor()
-        response = await graph_executor.execute(exec_request)
-    else:
-        legacy_executor = get_executor()
-        response = await legacy_executor.execute(exec_request)
+    graph_executor = get_graph_executor()
+    response = await graph_executor.execute(exec_request)
 
     # Log result
     if response.status == ExecutionStatus.COMPLETED:
@@ -84,12 +71,6 @@ async def execute_extraction(
     else:
         logger.error(f"Extraction failed: {response.error}")
 
-    # Store result in CosmosDB (fire-and-forget)
-    if exec_request.save_to_cosmos:
-        cosmosdb = get_cosmosdb_service()
-        if cosmosdb:
-            await cosmosdb.store_execution_result(response, source="realtime")
-
     return response
 
 
@@ -99,13 +80,13 @@ async def execute_extraction_from_file(
     request: Request,
     file: Annotated[UploadFile, File(description="Document file to process")],
     skill_name: Annotated[str, Form(description="Skill name to execute")],
-    vendor: Annotated[Optional[str], Form(description="Override default LLM vendor")] = None,
-    model: Annotated[Optional[str], Form(description="Override default model")] = None,
+    vendor: Annotated[str | None, Form(description="Override default LLM vendor")] = None,
+    model: Annotated[str | None, Form(description="Override default model")] = None,
     save_to_cosmos: Annotated[
         bool, Form(description="Whether to persist result to CosmosDB")
-    ] = True,
+    ] = False,
     _api_key: ApiKeyDep = None,  # type: ignore[assignment]
-    registry: Annotated[Optional[SkillRegistry], Depends(get_registry)] = None,
+    registry: Annotated[SkillRegistry | None, Depends(get_registry)] = None,
 ) -> ExecutionResponse:
     """Execute document extraction from an uploaded file.
 
@@ -123,55 +104,11 @@ async def execute_extraction_from_file(
     """
     settings = get_settings()
 
-    # Validate file type/extension BEFORE reading content
-    filename = file.filename or ""
-    _, file_ext = os.path.splitext(filename)
-    file_ext_lower = file_ext.lower()
-
-    if not file_ext_lower or file_ext_lower not in settings.allowed_file_extensions:
-        allowed = ", ".join(settings.allowed_file_extensions)
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=(
-                f"File type '{file_ext_lower or '(none)'}' is not supported. "
-                f"Allowed file extensions: {allowed}"
-            ),
-        )
-
-    # Validate file size BEFORE reading full content
-    # Read content to check size (FastAPI UploadFile requires reading to get size)
-    content_bytes = await file.read()
-    max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
-    if len(content_bytes) > max_size_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail=(
-                f"File size exceeds the maximum allowed size of {settings.max_upload_size_mb} MB."
-            ),
-        )
-
-    # Decode file content
-    try:
-        document_text = content_bytes.decode("utf-8")
-    except UnicodeDecodeError:
-        # Try common encodings
-        for encoding in ["latin-1", "cp1252", "iso-8859-1"]:
-            try:
-                document_text = content_bytes.decode(encoding)
-                logger.info(f"Successfully decoded file using {encoding} encoding")
-                break
-            except UnicodeDecodeError:
-                continue
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Unable to decode file. Unsupported encoding. Please upload a text file or convert to UTF-8.",
-            )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error reading file: {str(e)}",
-        )
+    document_text = await read_uploaded_text_file(
+        file,
+        allowed_file_extensions=settings.allowed_file_extensions,
+        max_upload_size_mb=settings.max_upload_size_mb,
+    )
 
     # Ensure registry is not None
     if registry is None:
@@ -203,12 +140,8 @@ async def execute_extraction_from_file(
         f"skill '{skill_name}', document length: {len(document_text)} chars"
     )
 
-    if settings.use_langgraph:
-        graph_executor = get_graph_executor()
-        response = await graph_executor.execute(exec_request)
-    else:
-        executor = get_executor()
-        response = await executor.execute(exec_request)
+    graph_executor = get_graph_executor()
+    response = await graph_executor.execute(exec_request)
 
     # Log result
     if response.status == ExecutionStatus.COMPLETED:
@@ -220,12 +153,6 @@ async def execute_extraction_from_file(
         logger.warning(f"File extraction partially completed: {response.error}")
     else:
         logger.error(f"File extraction failed: {response.error}")
-
-    # Store result in CosmosDB (fire-and-forget)
-    if exec_request.save_to_cosmos:
-        cosmosdb = get_cosmosdb_service()
-        if cosmosdb:
-            await cosmosdb.store_execution_result(response, source="realtime")
 
     return response
 
@@ -243,7 +170,7 @@ async def execute_extraction_streaming(
     This endpoint streams progress events as the LangGraph executes,
     enabling real-time UI updates.
 
-    Note: Only available when use_langgraph is enabled.
+    Note: Only available when streaming is enabled.
 
     Args:
         exec_request: Execution request with document and skill_name.
@@ -253,10 +180,10 @@ async def execute_extraction_streaming(
     """
     settings = get_settings()
 
-    if not settings.use_langgraph or not settings.enable_streaming:
+    if not settings.enable_streaming:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Streaming is only available with LangGraph enabled",
+            detail="Streaming is disabled",
         )
 
     # Validate skill exists
@@ -288,7 +215,7 @@ async def execute_extraction_streaming(
 async def resume_execution(
     request: Request,
     execution_id: str,
-    feedback: Optional[Dict[str, Any]] = None,
+    feedback: dict[str, Any] | None = None,
     _api_key: ApiKeyDep = None,  # type: ignore[assignment]
 ) -> ExecutionResponse:
     """Resume a paused execution with optional human feedback.
@@ -296,7 +223,7 @@ async def resume_execution(
     This endpoint is used to resume executions that were paused for
     human review. The human can provide corrections or approve the results.
 
-    Note: Only available when use_langgraph is enabled.
+    Note: Only available when human review is enabled.
 
     Args:
         execution_id: ID of the execution to resume
@@ -307,10 +234,10 @@ async def resume_execution(
     """
     settings = get_settings()
 
-    if not settings.use_langgraph or not settings.enable_human_review:
+    if not settings.enable_human_review:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Human review is only available with LangGraph enabled",
+            detail="Human review is disabled",
         )
 
     logger.info(f"Resuming execution {execution_id} with feedback: {bool(feedback)}")
@@ -325,59 +252,6 @@ async def resume_execution(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to resume execution: {str(e)}",
         )
-
-
-@router.post("/legacy", response_model=ExecutionResponse)
-@limiter.limit("10/minute")  # type: ignore[misc]
-async def execute_extraction_legacy(
-    request: Request,
-    exec_request: ExecutionRequest,
-    _api_key: ApiKeyDep,
-    registry: Annotated[SkillRegistry, Depends(get_registry)],
-    executor: Annotated[SkillExecutor, Depends(get_executor)],
-) -> ExecutionResponse:
-    """Execute extraction using the legacy SkillExecutor.
-
-    This endpoint always uses the original executor implementation,
-    regardless of the use_langgraph setting. Useful for comparison
-    or rollback scenarios.
-
-    Args:
-        exec_request: Execution request with document and skill_name.
-
-    Returns:
-        Extraction results with metadata.
-    """
-    # Validate skill exists
-    schema = registry.get_schema(exec_request.skill_name)
-    if not schema:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Skill '{exec_request.skill_name}' not found",
-        )
-
-    logger.info(
-        f"Starting LEGACY extraction with skill '{exec_request.skill_name}', "
-        f"document length: {len(exec_request.document)} chars"
-    )
-
-    response = await executor.execute(exec_request)
-
-    # Log result
-    if response.status == ExecutionStatus.COMPLETED:
-        logger.info(f"Legacy extraction completed in {response.metadata.processing_time_ms}ms")
-    elif response.status == ExecutionStatus.PARTIAL:
-        logger.warning(f"Legacy extraction partially completed: {response.error}")
-    else:
-        logger.error(f"Legacy extraction failed: {response.error}")
-
-    # Store result in CosmosDB (fire-and-forget)
-    if exec_request.save_to_cosmos:
-        cosmosdb = get_cosmosdb_service()
-        if cosmosdb:
-            await cosmosdb.store_execution_result(response, source="realtime")
-
-    return response
 
 
 @router.post("/batch", response_model=BatchExecutionResponse)

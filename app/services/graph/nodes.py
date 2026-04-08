@@ -6,21 +6,38 @@ Each node is a function that takes state and returns updated state.
 
 import asyncio
 import logging
-import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 from app.core.config import get_settings
-from app.models.schema import MergeStrategy
 from app.models.skill import Skill, SkillExecutionResult
+from app.services.execution_utils import (
+    deep_merge as _deep_merge_impl,
+)
+from app.services.execution_utils import (
+    execute_single_skill as _execute_single_skill_impl,
+)
+from app.services.execution_utils import (
+    get_default_model_for_vendor as _get_default_model_for_vendor_impl,
+)
+from app.services.execution_utils import (
+    get_nested_value as _get_nested_value_impl,
+)
+from app.services.execution_utils import (
+    merge_results,
+    validate_output,
+)
+from app.services.execution_utils import (
+    run_validation_rule as _run_validation_rule_impl,
+)
 from app.services.graph.state import SkillGraphState
-from app.services.llm_client import LLMClientError, LLMClientFactory
+from app.services.llm_client import LLMClientFactory
 from app.services.skill_registry import get_registry
 
 logger = logging.getLogger(__name__)
 
 
-def _state_get(state: SkillGraphState | Dict[str, Any], key: str, default: Any = None) -> Any:
+def _state_get(state: SkillGraphState | dict[str, Any], key: str, default: Any = None) -> Any:
     """Read state values from either a dict or SkillGraphState instance."""
     if isinstance(state, SkillGraphState):
         return getattr(state, key, default)
@@ -35,7 +52,7 @@ def _item_get(value: Any, key: str, default: Any = None) -> Any:
 
 
 # ===== 1. Initialization Node =====
-async def initialize_execution(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
+async def initialize_execution(state: SkillGraphState | dict[str, Any]) -> dict[str, Any]:
     """Initialize execution by loading schema and planning execution.
 
     This node:
@@ -72,7 +89,7 @@ async def initialize_execution(state: SkillGraphState | Dict[str, Any]) -> Dict[
 
 
 # ===== 2. Parallel Skill Execution Node =====
-async def execute_skill_group(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
+async def execute_skill_group(state: SkillGraphState | dict[str, Any]) -> dict[str, Any]:
     """Execute all skills in the current parallel group concurrently.
 
     This is the core execution node that maintains backward compatibility
@@ -98,8 +115,8 @@ async def execute_skill_group(state: SkillGraphState | Dict[str, Any]) -> Dict[s
         _execute_single_skill(
             skill=skill,
             document=_state_get(state, "document"),
-            vendor=vendor,
-            model=model,
+            default_vendor=vendor,
+            default_model=model,
             settings=settings,
         )
         for skill in current_skills
@@ -164,105 +181,8 @@ async def execute_skill_group(state: SkillGraphState | Dict[str, Any]) -> Dict[s
     }
 
 
-async def _execute_single_skill(
-    skill: Skill, document: str, vendor: str, model: Optional[str], settings: Any
-) -> SkillExecutionResult:
-    """Execute a single skill with retries.
-
-    This function replicates the logic from SkillExecutor._execute_single_skill
-    """
-    effective_vendor = skill.get_effective_vendor(vendor)
-    effective_model = skill.get_effective_model(model)
-
-    # Get default model for vendor if not specified
-    if not effective_model or effective_model == "":
-        effective_model = _get_default_model_for_vendor(effective_vendor, settings)
-        logger.info(f"Resolved model to {effective_model} for vendor {effective_vendor}")
-
-    start_time = time.time()
-    last_error: Optional[str] = None
-    retries = 0
-
-    for attempt in range(skill.config.retry_count + 1):
-        try:
-            client = LLMClientFactory.get_client(effective_vendor, effective_model, settings)
-
-            # Execute with timeout
-            data, usage = await asyncio.wait_for(
-                client.extract_json(
-                    skill.prompt,
-                    document,
-                    temperature=skill.config.temperature,
-                ),
-                timeout=skill.config.timeout_seconds,
-            )
-
-            execution_time = int((time.time() - start_time) * 1000)
-
-            logger.info(
-                f"Skill '{skill.id}' completed in {execution_time}ms (tokens: {usage.total_tokens})"
-            )
-
-            return SkillExecutionResult(
-                skill_id=skill.id,
-                success=True,
-                data=data,
-                token_usage=usage.model_dump(),
-                execution_time_ms=execution_time,
-                model_used=effective_model or "default",
-                vendor_used=effective_vendor,
-                retries=retries,
-            )
-
-        except asyncio.TimeoutError:
-            last_error = f"Timeout after {skill.config.timeout_seconds}s"
-            retries = attempt + 1
-            logger.warning(f"Skill '{skill.id}' timed out, attempt {retries}")
-
-        except LLMClientError as e:
-            last_error = str(e)
-            retries = attempt + 1
-            logger.warning(f"Skill '{skill.id}' failed: {e}, attempt {retries}")
-
-        except Exception as e:
-            last_error = str(e)
-            retries = attempt + 1
-            logger.exception(f"Skill '{skill.id}' unexpected error: {e}")
-
-        # Small delay before retry
-        if attempt < skill.config.retry_count:
-            await asyncio.sleep(1 * (attempt + 1))
-
-    # All retries exhausted
-    execution_time = int((time.time() - start_time) * 1000)
-    return SkillExecutionResult(
-        skill_id=skill.id,
-        success=False,
-        error=last_error,
-        execution_time_ms=execution_time,
-        model_used=effective_model or "default",
-        vendor_used=effective_vendor,
-        retries=retries,
-    )
-
-
-def _get_default_model_for_vendor(vendor: str, settings: Any) -> str:
-    """Get the default model for a specific vendor."""
-    vendor_lower = vendor.lower()
-
-    if vendor_lower == "anthropic":
-        return str(settings.anthropic_model)
-    elif vendor_lower == "openai":
-        return str(settings.openai_model)
-    elif vendor_lower == "gemini":
-        return str(settings.gemini_model)
-    else:
-        logger.warning(f"Unknown vendor '{vendor}', defaulting to Anthropic")
-        return str(settings.anthropic_model)
-
-
 # ===== 3. Merge Results Node =====
-async def merge_skill_results(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
+async def merge_skill_results(state: SkillGraphState | dict[str, Any]) -> dict[str, Any]:
     """Merge skill results according to schema strategy.
 
     Applies MERGE_DEEP, FIRST_WINS, or LAST_WINS strategy.
@@ -271,25 +191,9 @@ async def merge_skill_results(state: SkillGraphState | Dict[str, Any]) -> Dict[s
     schema = registry.get_schema_or_raise(_state_get(state, "schema_id"))
     strategy = schema.config.post_processing.merge_strategy
 
-    merged = _state_get(state, "merged_data", {}).copy()
-
     # Get only successful results with data
     new_results = [r for r in _state_get(state, "skill_results", []) if r.success and r.data]
-
-    for result in new_results:
-        if strategy == MergeStrategy.FIRST_WINS:
-            # Only add keys that don't exist
-            for key, value in result.data.items():
-                if key not in merged:
-                    merged[key] = value
-
-        elif strategy == MergeStrategy.LAST_WINS:
-            # Overwrite existing keys
-            merged.update(result.data)
-
-        elif strategy == MergeStrategy.MERGE_DEEP:
-            # Deep merge
-            merged = _deep_merge(merged, result.data)
+    merged = merge_results(new_results, strategy, initial=_state_get(state, "merged_data", {}))
 
     return {
         "merged_data": merged,
@@ -304,21 +208,41 @@ async def merge_skill_results(state: SkillGraphState | Dict[str, Any]) -> Dict[s
     }
 
 
-def _deep_merge(base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
+def _deep_merge(base: dict[str, Any], update: dict[str, Any]) -> dict[str, Any]:
     """Deep merge two dictionaries."""
-    result = base.copy()
+    return _deep_merge_impl(base, update)
 
-    for key, value in update.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = _deep_merge(result[key], value)
-        else:
-            result[key] = value
 
-    return result
+async def _execute_single_skill(
+    skill: Skill,
+    document: str,
+    default_vendor: str,
+    default_model: str | None,
+    settings: Any,
+) -> SkillExecutionResult:
+    """Execute a single skill with shared retry logic."""
+    return await _execute_single_skill_impl(
+        skill, document, default_vendor, default_model, settings
+    )
+
+
+def _get_default_model_for_vendor(vendor: str, settings: Any) -> str:
+    """Get the default model for a specific vendor."""
+    return _get_default_model_for_vendor_impl(vendor, settings)
+
+
+def _run_validation_rule(rule: Any, data: dict[str, Any]) -> dict[str, Any]:
+    """Run a single validation rule."""
+    return _run_validation_rule_impl(rule, data)
+
+
+def _get_nested_value(data: dict[str, Any], path: str) -> Any | None:
+    """Get a nested value from a dictionary using dot notation."""
+    return _get_nested_value_impl(data, path)
 
 
 # ===== 4. Validation Node =====
-async def validate_results(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
+async def validate_results(state: SkillGraphState | dict[str, Any]) -> dict[str, Any]:
     """Validate merged results against schema rules.
 
     Runs Pydantic validation and custom validation rules.
@@ -326,167 +250,29 @@ async def validate_results(state: SkillGraphState | Dict[str, Any]) -> Dict[str,
     registry = get_registry()
     schema = registry.get_schema_or_raise(_state_get(state, "schema_id"))
     merged_data = _state_get(state, "merged_data", {})
-
-    errors: List[str] = []
-    warnings: List[str] = []
-    checks: List[Dict[str, Any]] = []
-
-    # Validate against Pydantic model if available
-    if schema.output_model:
-        try:
-            schema.output_model(**merged_data)
-            checks.append(
-                {
-                    "name": "pydantic_validation",
-                    "status": "passed",
-                }
-            )
-        except Exception as e:
-            errors.append(f"Pydantic validation failed: {e}")
-            checks.append(
-                {
-                    "name": "pydantic_validation",
-                    "status": "failed",
-                    "error": str(e),
-                }
-            )
-
-    # Run custom validation rules
-    for rule in schema.config.post_processing.validation_rules:
-        check_result = _run_validation_rule(rule, merged_data)
-        checks.append(check_result)
-
-        if check_result["status"] == "failed":
-            if rule.severity == "error":
-                errors.append(f"{rule.name}: {check_result.get('error', 'Failed')}")
-            else:
-                warnings.append(f"{rule.name}: {check_result.get('error', 'Warning')}")
-
-    # Calculate quality score
-    quality_score = 100 - (len(errors) * 15) - (len(warnings) * 5)
-    quality_score = max(0, min(100, quality_score))
-
-    # Determine status
-    if errors:
-        status = "FAIL"
-    elif warnings:
-        status = "REVIEW"
-    else:
-        status = "PASS"
-
-    from app.models.execution import ValidationResult
-
-    validation = ValidationResult(
-        status=status,
-        quality_score=quality_score,
-        checks=checks,
-        errors=errors,
-        warnings=warnings,
-    )
+    validation = validate_output(merged_data, schema)
 
     # Determine if human review is needed
-    human_review = status == "FAIL" and len(errors) > 0
+    human_review = validation.status == "FAIL" and len(validation.errors) > 0
 
     return {
         "validation_result": validation,
-        "quality_score": quality_score,
+        "quality_score": validation.quality_score,
         "human_review_required": human_review,
         "progress_events": [
             {
                 "type": "validation_completed",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "status": status,
-                "errors": len(errors),
-                "warnings": len(warnings),
+                "status": validation.status,
+                "errors": len(validation.errors),
+                "warnings": len(validation.warnings),
             }
         ],
     }
 
 
-def _run_validation_rule(rule: Any, data: Dict[str, Any]) -> Dict[str, Any]:
-    """Run a single validation rule."""
-    try:
-        if rule.type == "sum_check":
-            expected_field = rule.params.get("expected")
-            operands = rule.params.get("operands", [])
-
-            expected_value = _get_nested_value(data, expected_field)
-            calculated = 0
-
-            for op in operands:
-                if op.startswith("-"):
-                    calculated -= _get_nested_value(data, op[1:]) or 0
-                else:
-                    calculated += _get_nested_value(data, op) or 0
-
-            if expected_value == calculated:
-                return {"name": rule.name, "status": "passed"}
-            else:
-                return {
-                    "name": rule.name,
-                    "status": "failed",
-                    "error": f"Expected {expected_value}, calculated {calculated}",
-                }
-
-        elif rule.type == "required":
-            fields = rule.params.get("fields", [])
-            missing = [f for f in fields if _get_nested_value(data, f) is None]
-
-            if missing:
-                return {
-                    "name": rule.name,
-                    "status": "failed",
-                    "error": f"Missing fields: {missing}",
-                }
-            return {"name": rule.name, "status": "passed"}
-
-        elif rule.type == "range_check":
-            field = rule.params.get("field")
-            min_val = rule.params.get("min")
-            max_val = rule.params.get("max")
-
-            value = _get_nested_value(data, field)
-
-            if value is None:
-                return {"name": rule.name, "status": "skipped", "reason": "Field not found"}
-
-            if (min_val is not None and value < min_val) or (
-                max_val is not None and value > max_val
-            ):
-                return {
-                    "name": rule.name,
-                    "status": "failed",
-                    "error": f"Value {value} outside range [{min_val}, {max_val}]",
-                }
-            return {"name": rule.name, "status": "passed"}
-
-        else:
-            return {
-                "name": rule.name,
-                "status": "skipped",
-                "reason": f"Unknown rule type: {rule.type}",
-            }
-
-    except Exception as e:
-        return {"name": rule.name, "status": "error", "error": str(e)}
-
-
-def _get_nested_value(data: Dict[str, Any], path: str) -> Optional[Any]:
-    """Get a nested value from a dictionary using dot notation."""
-    parts = path.split(".")
-    current = data
-
-    for part in parts:
-        if isinstance(current, dict) and part in current:
-            current = current[part]
-        else:
-            return None
-
-    return current
-
-
 # ===== 5. Human Review Node =====
-async def human_review_node(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
+async def human_review_node(state: SkillGraphState | dict[str, Any]) -> dict[str, Any]:
     """Pause execution for human review.
 
     This node creates an interrupt that pauses the graph until
@@ -510,7 +296,7 @@ async def human_review_node(state: SkillGraphState | Dict[str, Any]) -> Dict[str
 
 
 # ===== 6. Conditional Router Node =====
-async def route_next_action(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
+async def route_next_action(state: SkillGraphState | dict[str, Any]) -> dict[str, Any]:
     """Determine the next action based on current state.
 
     This enables conditional branching:
@@ -557,7 +343,7 @@ async def route_next_action(state: SkillGraphState | Dict[str, Any]) -> Dict[str
 
 
 # ===== 7. Checkpoint Node =====
-async def save_checkpoint(state: SkillGraphState | Dict[str, Any]) -> Dict[str, Any]:
+async def save_checkpoint(state: SkillGraphState | dict[str, Any]) -> dict[str, Any]:
     """Save execution checkpoint for recovery.
 
     LangGraph handles this automatically with the checkpointer,
@@ -579,8 +365,8 @@ async def save_checkpoint(state: SkillGraphState | Dict[str, Any]) -> Dict[str, 
 
 # ===== 8. Dynamic Skill Selection Node (Optional) =====
 async def analyze_document_and_select_skills(
-    state: SkillGraphState | Dict[str, Any],
-) -> Dict[str, Any]:
+    state: SkillGraphState | dict[str, Any],
+) -> dict[str, Any]:
     """Analyze document to dynamically select which skills to run.
 
     This is a new capability enabled by LangGraph - we can use an LLM
